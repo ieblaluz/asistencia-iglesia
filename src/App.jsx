@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from './supabaseClient';
+import { guardarLocalmente, sincronizarConSupabase, obtenerRegistrosPendientes } from './offlineSync';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import { ReporteMensualPDF, ReporteAnualPDF, ReportePromediosPDF } from './ReportePDF';
 
@@ -57,6 +58,32 @@ const formatearFechaLatina = (fechaISO) => {
 
 export default function App() {
   const [tab, setTab] = useState('registro');
+
+  // --- ESTADOS DE SINCRONIZACIÓN OFFLINE ---
+  const [pendientes, setPendientes] = useState(obtenerRegistrosPendientes());
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  // Escuchar cambios en la conexión a internet
+  useEffect(() => {
+    const handleOnline = async () => {
+      setIsOnline(true);
+      const res = await sincronizarConSupabase();
+      if (res && res.synced > 0) {
+        alert(`¡Conexión restablecida! Se sincronizaron ${res.synced} registros pendientes.`);
+        setPendientes(obtenerRegistrosPendientes());
+      }
+    };
+
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   // --- ESTADOS DE CONFIGURACIÓN ---
   const [configIglesia, setConfigIglesia] = useState({
@@ -186,6 +213,30 @@ export default function App() {
     setCargando(true);
     setMensaje({ tipo: '', texto: '' });
 
+    const esMiercoles = new Date(fecha + 'T00:00:00').getDay() === 3;
+    const gruposAInsertar = listaGrupos.filter(g => {
+      if (!g.activo) return false;
+      if (esMiercoles) return g.aplica_a === 'miercoles' || g.aplica_a === 'ambos';
+      return g.aplica_a === 'domingo' || g.aplica_a === 'ambos';
+    });
+
+    const filas = gruposAInsertar.map(g => ({
+      fecha,
+      turno,
+      clase: g.nombre,
+      cantidad: cantidades[g.nombre] || 0
+    }));
+
+    if (!navigator.onLine) {
+      guardarLocalmente(filas);
+      setPendientes(obtenerRegistrosPendientes());
+      setMensaje({ tipo: 'exito', texto: 'Sin conexión a internet. La asistencia se guardó localmente en el móvil y se subirá automáticamente al conectar.' });
+      setCantidades(obtenerValoresVacios());
+      setExisteRegistro(true);
+      setCargando(false);
+      return;
+    }
+
     try {
       await supabase
         .from('asistencia')
@@ -193,29 +244,19 @@ export default function App() {
         .eq('fecha', fecha)
         .eq('turno', turno);
 
-      const esMiercoles = new Date(fecha + 'T00:00:00').getDay() === 3;
-      const gruposAInsertar = listaGrupos.filter(g => {
-        if (!g.activo) return false;
-        if (esMiercoles) return g.aplica_a === 'miercoles' || g.aplica_a === 'ambos';
-        return g.aplica_a === 'domingo' || g.aplica_a === 'ambos';
-      });
-
-      const filas = gruposAInsertar.map(g => ({
-        fecha,
-        turno,
-        clase: g.nombre,
-        cantidad: cantidades[g.nombre] || 0
-      }));
-
       const { error: insError } = await supabase.from('asistencia').insert(filas);
       if (insError) throw insError;
 
-      setMensaje({ tipo: 'exito', texto: '¡Asistencia guardada con éxito!' });
+      setMensaje({ tipo: 'exito', texto: '¡Asistencia guardada con éxito en la nube!' });
       setCantidades(obtenerValoresVacios());
       setExisteRegistro(true);
     } catch (err) {
-      console.error('Error al guardar:', err);
-      setMensaje({ tipo: 'error', texto: 'Error al guardar la asistencia.' });
+      console.error('Error al guardar en nube, utilizando fallback local:', err);
+      guardarLocalmente(filas);
+      setPendientes(obtenerRegistrosPendientes());
+      setMensaje({ tipo: 'exito', texto: 'Ocurrió un problema de red. Se guardó localmente y se reintentará luego.' });
+      setCantidades(obtenerValoresVacios());
+      setExisteRegistro(true);
     } finally {
       setCargando(false);
     }
@@ -507,6 +548,32 @@ export default function App() {
 
       {/* Main Content */}
       <main className="max-w-6xl mx-auto px-4 mt-4">
+
+        {/* Indicador visual de estado offline */}
+        {!isOnline && (
+          <div className="bg-amber-500 text-white p-2.5 rounded-xl mb-3 text-center font-semibold text-xs shadow-sm">
+            ⚠️ Modo Sin Conexión (Offline). Los registros se guardarán en tu dispositivo.
+          </div>
+        )}
+
+        {/* Indicador visual de registros pendientes */}
+        {pendientes > 0 && (
+          <div className="bg-blue-600 text-white p-2.5 rounded-xl mb-3 text-center text-xs font-medium flex justify-between items-center shadow-sm">
+            <span>{pendientes} registros pendientes de subir</span>
+            {isOnline && (
+              <button
+                onClick={async () => {
+                  const res = await sincronizarConSupabase();
+                  if (res && res.synced > 0) setPendientes(obtenerRegistrosPendientes());
+                }}
+                className="bg-white text-blue-700 px-3 py-1 rounded-lg text-xs font-bold hover:bg-slate-100 transition"
+              >
+                Sincronizar Ahora
+              </button>
+            )}
+          </div>
+        )}
+
         {tab === 'registro' && (
           <div className="space-y-3">
             {existeRegistro && (
