@@ -1,3 +1,8 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+body {
+  -webkit-user-select: none; /* Desactiva la selección de texto al tocar */
+  user-select: none;
+  -webkit-tap-highlight-color: transparent; /* Quita el recuadro gris al pulsar en móviles */
+}

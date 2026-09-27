@@ -30,7 +30,9 @@ import {
   Trash2,
   Eye,
   EyeOff,
-  Upload
+  Upload,
+  Lock,
+  Unlock
 } from 'lucide-react';
 
 const MESES = [
@@ -63,7 +65,6 @@ export default function App() {
   const [pendientes, setPendientes] = useState(obtenerRegistrosPendientes());
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
-  // Escuchar cambios en la conexión a internet
   useEffect(() => {
     const handleOnline = async () => {
       setIsOnline(true);
@@ -92,6 +93,7 @@ export default function App() {
     logo_url: ''
   });
   const [listaGrupos, setListaGrupos] = useState([]);
+  const [modoEdicionConfig, setModoEdicionConfig] = useState(false); // Estado para solo lectura / edición en Ajustes
 
   // --- ESTADOS DE REGISTRO ---
   const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
@@ -384,6 +386,7 @@ export default function App() {
 
   const guardarIdentidadIglesia = async (e) => {
     e.preventDefault();
+    if (!modoEdicionConfig) return;
     setGuardandoConfig(true);
     try {
       const { error } = await supabase
@@ -404,6 +407,7 @@ export default function App() {
   // AGREGAR GRUPO CON VALIDACIÓN ANTI-DUPLICADOS
   const agregarGrupo = async (e) => {
     e.preventDefault();
+    if (!modoEdicionConfig) return;
     const nombreLimpio = nuevoGrupo.nombre.trim();
 
     if (!nombreLimpio) return;
@@ -436,6 +440,7 @@ export default function App() {
   };
 
   const alternarEstadoGrupo = async (grupo) => {
+    if (!modoEdicionConfig) return;
     try {
       const { error } = await supabase
         .from('grupos_asistencia')
@@ -450,6 +455,7 @@ export default function App() {
   };
 
   const guardarEdicionGrupo = async (id) => {
+    if (!modoEdicionConfig) return;
     try {
       const { error } = await supabase
         .from('grupos_asistencia')
@@ -470,6 +476,7 @@ export default function App() {
   };
 
   const eliminarGrupo = async (id) => {
+    if (!modoEdicionConfig) return;
     if (!confirm('¿Seguro que deseas eliminar esta clase?')) return;
     try {
       const { error } = await supabase.from('grupos_asistencia').delete().eq('id', id);
@@ -498,67 +505,75 @@ export default function App() {
   });
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-800 pb-6 font-sans">
-      {/* Navbar Header */}
-      <header className="bg-amber-700 text-white shadow-md sticky top-0 z-40">
-        <div className="max-w-6xl mx-auto px-4 py-2 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5">
+    <div className="flex min-h-screen bg-slate-100 text-slate-800 font-sans">
+      {/* BARRA LATERAL (SIDEBAR) */}
+      <aside className="w-64 bg-amber-900 text-white flex flex-col justify-between p-4 shrink-0 shadow-lg">
+        <div className="space-y-6">
+          {/* Encabezado Logo / Nombre */}
+          <div className="flex items-center gap-3 p-2 bg-amber-950/40 rounded-xl">
             {configIglesia.logo_url ? (
-              <img src={configIglesia.logo_url} alt="Logo" className="w-8 h-8 rounded-lg object-cover bg-white p-0.5" />
+              <img src={configIglesia.logo_url} alt="Logo" className="w-10 h-10 rounded-lg object-cover bg-white p-0.5" />
             ) : (
-              <div className="bg-amber-100 text-amber-900 px-2 py-1 rounded-lg font-black text-lg">✝</div>
+              <div className="bg-amber-100 text-amber-900 w-10 h-10 rounded-lg flex items-center justify-center font-black text-xl">✝</div>
             )}
             <div>
-              <h1 className="font-bold text-base leading-tight">{configIglesia.nombre_iglesia}</h1>
-              <p className="text-amber-200 text-[11px] font-medium leading-none">{configIglesia.direccion} · Asistencia</p>
+              <h1 className="font-bold text-sm leading-tight">{configIglesia.nombre_iglesia}</h1>
+              <p className="text-amber-200 text-[11px] font-medium">{configIglesia.direccion}</p>
             </div>
           </div>
 
-          <div className="flex bg-amber-800/80 p-0.5 rounded-lg gap-1">
+          {/* Menú de Navegación Vertical */}
+          <nav className="space-y-1.5">
             <button
               onClick={() => setTab('registro')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-bold text-xs uppercase transition ${
-                tab === 'registro' ? 'bg-white text-amber-900 shadow-sm' : 'text-amber-100 hover:bg-amber-700'
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs uppercase transition ${
+                tab === 'registro' ? 'bg-amber-600 text-white shadow-md' : 'text-amber-200 hover:bg-amber-800/60 hover:text-white'
               }`}
             >
-              <ClipboardList className="w-3.5 h-3.5" />
-              Registro
+              <ClipboardList className="w-4 h-4" />
+              REGISTRO
             </button>
             <button
               onClick={() => setTab('reportes')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-bold text-xs uppercase transition ${
-                tab === 'reportes' ? 'bg-white text-amber-900 shadow-sm' : 'text-amber-100 hover:bg-amber-700'
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs uppercase transition ${
+                tab === 'reportes' ? 'bg-amber-600 text-white shadow-md' : 'text-amber-200 hover:bg-amber-800/60 hover:text-white'
               }`}
             >
-              <BarChart3 className="w-3.5 h-3.5" />
-              Reportes
+              <BarChart3 className="w-4 h-4" />
+              REPORTES
             </button>
             <button
               onClick={() => setTab('configuracion')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-bold text-xs uppercase transition ${
-                tab === 'configuracion' ? 'bg-white text-amber-900 shadow-sm' : 'text-amber-100 hover:bg-amber-700'
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs uppercase transition ${
+                tab === 'configuracion' ? 'bg-amber-600 text-white shadow-md' : 'text-amber-200 hover:bg-amber-800/60 hover:text-white'
               }`}
             >
-              <Settings className="w-3.5 h-3.5" />
-              Ajustes
+              <Settings className="w-4 h-4" />
+              AJUSTES
             </button>
-          </div>
+          </nav>
         </div>
-      </header>
 
-      {/* Main Content */}
-      <main className="max-w-6xl mx-auto px-4 mt-4">
+        {/* Footer Barra Lateral */}
+        <div className="text-center pt-4 border-t border-amber-800/60">
+          <p className="text-amber-300/80 font-bold text-xs">Gestión de Asistencia</p>
+          <p className="text-amber-400/60 text-[10px]">v1.2.0</p>
+        </div>
+      </aside>
+
+      {/* ÁREA DE CONTENIDO PRINCIPAL */}
+      <main className="flex-1 p-6 overflow-y-auto">
 
         {/* Indicador visual de estado offline */}
         {!isOnline && (
-          <div className="bg-amber-500 text-white p-2.5 rounded-xl mb-3 text-center font-semibold text-xs shadow-sm">
+          <div className="bg-amber-500 text-white p-2.5 rounded-xl mb-4 text-center font-semibold text-xs shadow-sm">
             ⚠️ Modo Sin Conexión (Offline). Los registros se guardarán en tu dispositivo.
           </div>
         )}
 
         {/* Indicador visual de registros pendientes */}
         {pendientes > 0 && (
-          <div className="bg-blue-600 text-white p-2.5 rounded-xl mb-3 text-center text-xs font-medium flex justify-between items-center shadow-sm">
+          <div className="bg-blue-600 text-white p-2.5 rounded-xl mb-4 text-center text-xs font-medium flex justify-between items-center shadow-sm">
             <span>{pendientes} registros pendientes de subir</span>
             {isOnline && (
               <button
@@ -574,6 +589,7 @@ export default function App() {
           </div>
         )}
 
+        {/* PESTAÑA REGISTRO */}
         {tab === 'registro' && (
           <div className="space-y-3">
             {existeRegistro && (
@@ -718,6 +734,7 @@ export default function App() {
           </div>
         )}
 
+        {/* PESTAÑA REPORTES */}
         {tab === 'reportes' && (
           <div className="space-y-4">
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
@@ -772,7 +789,6 @@ export default function App() {
                     ))}
                   </select>
 
-                  {/* BOTÓN DESCARGA DINÁMICO SEGÚN EL REPORTE ACTIVO */}
                   {subTabReporte === 'mensual' && (
                     <PDFDownloadLink
                       document={<ReporteMensualPDF datos={datosReporte} mesNombre={MESES.find(m => m.id === mesReporte)?.nombre} anio={anioReporte} config={configIglesia} />}
@@ -833,196 +849,255 @@ export default function App() {
           </div>
         )}
 
-        {/* PESTAÑA CONFIGURACIÓN */}
+        {/* PESTAÑA AJUSTES / CONFIGURACIÓN CON CONTROL DE MODO LECTURA Y EDICIÓN */}
         {tab === 'configuracion' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <div className="lg:col-span-1 bg-white p-4 rounded-xl border border-slate-200 shadow-sm h-fit">
-              <h2 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3 flex items-center gap-1.5 border-b pb-2">
-                <Building2 className="w-4 h-4 text-amber-600" />
-                Identidad de la Iglesia
-              </h2>
-
-              <form onSubmit={guardarIdentidadIglesia} className="space-y-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Nombre de la Iglesia</label>
-                  <input
-                    type="text"
-                    required
-                    value={formConfig.nombre_iglesia}
-                    onChange={(e) => setFormConfig({ ...formConfig, nombre_iglesia: e.target.value })}
-                    className="w-full px-3 py-1.5 text-xs font-semibold bg-slate-50 border border-slate-300 rounded-lg"
-                  />
+          <div className="space-y-4">
+            {/* BANNER SUPERIOR: INTERRUPTOR DE MODO LECTURA / MODO EDICIÓN */}
+            <div className={`p-3.5 rounded-xl border flex items-center justify-between transition-all ${
+              modoEdicionConfig 
+                ? 'bg-amber-50 border-amber-300 text-amber-950' 
+                : 'bg-slate-200/80 border-slate-300 text-slate-700'
+            }`}>
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-lg ${modoEdicionConfig ? 'bg-amber-600 text-white' : 'bg-slate-400 text-white'}`}>
+                  {modoEdicionConfig ? <Unlock className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
                 </div>
-
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Dirección / Ubicación</label>
-                  <input
-                    type="text"
-                    value={formConfig.direccion}
-                    onChange={(e) => setFormConfig({ ...formConfig, direccion: e.target.value })}
-                    className="w-full px-3 py-1.5 text-xs font-semibold bg-slate-50 border border-slate-300 rounded-lg"
-                  />
+                  <h3 className="font-bold text-xs uppercase tracking-wider">
+                    {modoEdicionConfig ? 'Modo de Edición Activado' : 'Ajustes Protegidos (Modo Solo Lectura)'}
+                  </h3>
+                  <p className="text-[11px] text-slate-500 font-medium">
+                    {modoEdicionConfig 
+                      ? 'Puedes modificar la identidad de la iglesia y agregar o editar clases.' 
+                      : 'Activa la edición para realizar modificaciones en la configuración de la aplicación.'}
+                  </p>
                 </div>
+              </div>
 
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Logo de la Iglesia (Seleccionar de la PC)</label>
-                  <div className="flex items-center gap-2 border border-slate-200 p-2 rounded-lg bg-slate-50">
-                    {formConfig.logo_url ? (
-                      <img src={formConfig.logo_url} alt="Logo Prev" className="w-10 h-10 object-cover rounded border bg-white p-0.5 shrink-0" />
-                    ) : (
-                      <div className="w-10 h-10 bg-amber-100 text-amber-800 rounded flex items-center justify-center font-bold shrink-0">
-                        <Upload className="w-4 h-4" />
-                      </div>
-                    )}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleLogoImagen}
-                      className="w-full text-xs text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-bold file:bg-amber-100 file:text-amber-800 hover:file:bg-amber-200 cursor-pointer"
-                    />
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={guardandoConfig}
-                  className="w-full py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-lg transition flex items-center justify-center gap-1.5 shadow"
-                >
-                  <Save className="w-3.5 h-3.5" />
-                  {guardandoConfig ? 'Guardando...' : 'Guardar Cambios'}
-                </button>
-              </form>
+              <button
+                type="button"
+                onClick={() => setModoEdicionConfig(!modoEdicionConfig)}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm ${
+                  modoEdicionConfig
+                    ? 'bg-slate-800 hover:bg-slate-900 text-white'
+                    : 'bg-amber-600 hover:bg-amber-700 text-white'
+                }`}
+              >
+                {modoEdicionConfig ? (
+                  <>
+                    <Lock className="w-3.5 h-3.5" /> Finalizar Edición
+                  </>
+                ) : (
+                  <>
+                    <Unlock className="w-3.5 h-3.5" /> Habilitar Edición
+                  </>
+                )}
+              </button>
             </div>
 
-            <div className="lg:col-span-2 bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-4">
-              <h2 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5 border-b pb-2">
-                <ListOrdered className="w-4 h-4 text-amber-600" />
-                Administrar Clases y Grupos
-              </h2>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              {/* PANEL IDENTIDAD DE LA IGLESIA */}
+              <div className="lg:col-span-1 bg-white p-4 rounded-xl border border-slate-200 shadow-sm h-fit">
+                <h2 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3 flex items-center gap-1.5 border-b pb-2">
+                  <Building2 className="w-4 h-4 text-amber-600" />
+                  Identidad de la Iglesia
+                </h2>
 
-              <form onSubmit={agregarGrupo} className="p-3 bg-amber-50/60 rounded-xl border border-amber-200 grid grid-cols-1 sm:grid-cols-4 gap-2 items-end">
-                <div className="sm:col-span-2">
-                  <label className="block text-[10px] font-bold text-amber-900 uppercase mb-1">Nombre de la Clase</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Ej. Jóvenes Adultos"
-                    value={nuevoGrupo.nombre}
-                    onChange={(e) => setNuevoGrupo({ ...nuevoGrupo, nombre: e.target.value })}
-                    className="w-full px-2.5 py-1.5 text-xs font-bold bg-white border border-amber-300 rounded-lg"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-amber-900 uppercase mb-1">Aplica A</label>
-                  <select
-                    value={nuevoGrupo.aplica_a}
-                    onChange={(e) => setNuevoGrupo({ ...nuevoGrupo, aplica_a: e.target.value })}
-                    className="w-full px-2 py-1.5 text-xs font-bold bg-white border border-amber-300 rounded-lg"
+                <form onSubmit={guardarIdentidadIglesia} className="space-y-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Nombre de la Iglesia</label>
+                    <input
+                      type="text"
+                      required
+                      disabled={!modoEdicionConfig}
+                      value={formConfig.nombre_iglesia}
+                      onChange={(e) => setFormConfig({ ...formConfig, nombre_iglesia: e.target.value })}
+                      className="w-full px-3 py-1.5 text-xs font-semibold bg-slate-50 border border-slate-300 rounded-lg disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Dirección / Ubicación</label>
+                    <input
+                      type="text"
+                      disabled={!modoEdicionConfig}
+                      value={formConfig.direccion}
+                      onChange={(e) => setFormConfig({ ...formConfig, direccion: e.target.value })}
+                      className="w-full px-3 py-1.5 text-xs font-semibold bg-slate-50 border border-slate-300 rounded-lg disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Logo de la Iglesia (Seleccionar de la PC)</label>
+                    <div className="flex items-center gap-2 border border-slate-200 p-2 rounded-lg bg-slate-50">
+                      {formConfig.logo_url ? (
+                        <img src={formConfig.logo_url} alt="Logo Prev" className="w-10 h-10 object-cover rounded border bg-white p-0.5 shrink-0" />
+                      ) : (
+                        <div className="w-10 h-10 bg-amber-100 text-amber-800 rounded flex items-center justify-center font-bold shrink-0">
+                          <Upload className="w-4 h-4" />
+                        </div>
+                      )}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        disabled={!modoEdicionConfig}
+                        onChange={handleLogoImagen}
+                        className="w-full text-xs text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-bold file:bg-amber-100 file:text-amber-800 hover:file:bg-amber-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={!modoEdicionConfig || guardandoConfig}
+                    className="w-full py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-lg transition flex items-center justify-center gap-1.5 shadow disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed disabled:shadow-none"
                   >
-                    <option value="domingo">Domingo</option>
-                    <option value="miercoles">Miércoles</option>
-                    <option value="ambos">Ambos</option>
-                  </select>
-                </div>
-                <button
-                  type="submit"
-                  className="py-1.5 bg-amber-700 hover:bg-amber-800 text-white font-bold text-xs rounded-lg transition flex items-center justify-center gap-1"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Crear
-                </button>
-              </form>
+                    <Save className="w-3.5 h-3.5" />
+                    {guardandoConfig ? 'Guardando...' : 'Guardar Cambios'}
+                  </button>
+                </form>
+              </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs border-collapse">
-                  <thead>
-                    <tr className="bg-slate-100 text-slate-600 font-bold border-b border-slate-200">
-                      <th className="p-2 text-left">Clase</th>
-                      <th className="p-2 text-center w-24">Aplica a</th>
-                      <th className="p-2 text-center w-20">Estado</th>
-                      <th className="p-2 text-right w-32">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {listaGrupos.map((g) => (
-                      <tr key={g.id} className="border-b border-slate-100 hover:bg-slate-50">
-                        {editandoGrupoId === g.id ? (
-                          <>
-                            <td className="p-2">
-                              <input
-                                type="text"
-                                value={grupoEditForm.nombre}
-                                onChange={(e) => setGrupoEditForm({ ...grupoEditForm, nombre: e.target.value })}
-                                className="w-full px-2 py-1 text-xs border rounded font-bold"
-                              />
-                            </td>
-                            <td className="p-2 text-center">
-                              <select
-                                value={grupoEditForm.aplica_a}
-                                onChange={(e) => setGrupoEditForm({ ...grupoEditForm, aplica_a: e.target.value })}
-                                className="px-1 py-1 text-xs border rounded"
-                              >
-                                <option value="domingo">Domingo</option>
-                                <option value="miercoles">Miércoles</option>
-                                <option value="ambos">Ambos</option>
-                              </select>
-                            </td>
-                            <td className="p-2 text-center">-</td>
-                            <td className="p-2 text-right space-x-1">
-                              <button
-                                onClick={() => guardarEdicionGrupo(g.id)}
-                                className="p-1 bg-emerald-600 text-white rounded hover:bg-emerald-700"
-                              >
-                                <Check className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                onClick={() => setEditandoGrupoId(null)}
-                                className="p-1 bg-slate-400 text-white rounded hover:bg-slate-500"
-                              >
-                                <X className="w-3.5 h-3.5" />
-                              </button>
-                            </td>
-                          </>
-                        ) : (
-                          <>
-                            <td className="p-2 font-bold text-slate-700">{g.nombre}</td>
-                            <td className="p-2 text-center capitalize text-slate-500 font-medium">{g.aplica_a}</td>
-                            <td className="p-2 text-center">
-                              <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${
-                                g.activo ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'
-                              }`}>
-                                {g.activo ? 'Activo' : 'Inactivo'}
-                              </span>
-                            </td>
-                            <td className="p-2 text-right space-x-1">
-                              <button
-                                onClick={() => alternarEstadoGrupo(g)}
-                                title={g.activo ? 'Desactivar clase' : 'Activar clase'}
-                                className="p-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded"
-                              >
-                                {g.activo ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setEditandoGrupoId(g.id);
-                                  setGrupoEditForm({ nombre: g.nombre, aplica_a: g.aplica_a, orden: g.orden });
-                                }}
-                                className="p-1 bg-amber-100 hover:bg-amber-200 text-amber-800 rounded"
-                              >
-                                <Edit3 className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                onClick={() => eliminarGrupo(g.id)}
-                                className="p-1 bg-rose-100 hover:bg-rose-200 text-rose-700 rounded"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </td>
-                          </>
-                        )}
+              {/* PANEL ADMINISTRAR CLASES Y GRUPOS */}
+              <div className="lg:col-span-2 bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                <h2 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5 border-b pb-2">
+                  <ListOrdered className="w-4 h-4 text-amber-600" />
+                  Administrar Clases y Grupos
+                </h2>
+
+                {/* FORMULARIO AGREGAR NUEVA CLASE */}
+                <form onSubmit={agregarGrupo} className="p-3 bg-amber-50/60 rounded-xl border border-amber-200 grid grid-cols-1 sm:grid-cols-4 gap-2 items-end">
+                  <div className="sm:col-span-2">
+                    <label className="block text-[10px] font-bold text-amber-900 uppercase mb-1">Nombre de la Clase</label>
+                    <input
+                      type="text"
+                      required
+                      disabled={!modoEdicionConfig}
+                      placeholder="Ej. Jóvenes Adultos"
+                      value={nuevoGrupo.nombre}
+                      onChange={(e) => setNuevoGrupo({ ...nuevoGrupo, nombre: e.target.value })}
+                      className="w-full px-2.5 py-1.5 text-xs font-bold bg-white border border-amber-300 rounded-lg disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-amber-900 uppercase mb-1">Aplica A</label>
+                    <select
+                      disabled={!modoEdicionConfig}
+                      value={nuevoGrupo.aplica_a}
+                      onChange={(e) => setNuevoGrupo({ ...nuevoGrupo, aplica_a: e.target.value })}
+                      className="w-full px-2 py-1.5 text-xs font-bold bg-white border border-amber-300 rounded-lg disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200"
+                    >
+                      <option value="domingo">Domingo</option>
+                      <option value="miercoles">Miércoles</option>
+                      <option value="ambos">Ambos</option>
+                    </select>
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={!modoEdicionConfig}
+                    className="py-1.5 bg-amber-700 hover:bg-amber-800 text-white font-bold text-xs rounded-lg transition flex items-center justify-center gap-1 disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Crear
+                  </button>
+                </form>
+
+                {/* TABLA DE CLASES */}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-slate-100 text-slate-600 font-bold border-b border-slate-200">
+                        <th className="p-2 text-left">Clase</th>
+                        <th className="p-2 text-center w-24">Aplica a</th>
+                        <th className="p-2 text-center w-20">Estado</th>
+                        <th className="p-2 text-right w-32">Acciones</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {listaGrupos.map((g) => (
+                        <tr key={g.id} className="border-b border-slate-100 hover:bg-slate-50">
+                          {editandoGrupoId === g.id ? (
+                            <>
+                              <td className="p-2">
+                                <input
+                                  type="text"
+                                  value={grupoEditForm.nombre}
+                                  onChange={(e) => setGrupoEditForm({ ...grupoEditForm, nombre: e.target.value })}
+                                  className="w-full px-2 py-1 text-xs border rounded font-bold"
+                                />
+                              </td>
+                              <td className="p-2 text-center">
+                                <select
+                                  value={grupoEditForm.aplica_a}
+                                  onChange={(e) => setGrupoEditForm({ ...grupoEditForm, aplica_a: e.target.value })}
+                                  className="px-1 py-1 text-xs border rounded"
+                                >
+                                  <option value="domingo">Domingo</option>
+                                  <option value="miercoles">Miércoles</option>
+                                  <option value="ambos">Ambos</option>
+                                </select>
+                              </td>
+                              <td className="p-2 text-center">-</td>
+                              <td className="p-2 text-right space-x-1">
+                                <button
+                                  onClick={() => guardarEdicionGrupo(g.id)}
+                                  className="p-1 bg-emerald-600 text-white rounded hover:bg-emerald-700"
+                                >
+                                  <Check className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => setEditandoGrupoId(null)}
+                                  className="p-1 bg-slate-400 text-white rounded hover:bg-slate-500"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </td>
+                            </>
+                          ) : (
+                            <>
+                              <td className="p-2 font-bold text-slate-700">{g.nombre}</td>
+                              <td className="p-2 text-center capitalize text-slate-500 font-medium">{g.aplica_a}</td>
+                              <td className="p-2 text-center">
+                                <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${
+                                  g.activo ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'
+                                }`}>
+                                  {g.activo ? 'Activo' : 'Inactivo'}
+                                </span>
+                              </td>
+                              <td className="p-2 text-right space-x-1">
+                                <button
+                                  onClick={() => alternarEstadoGrupo(g)}
+                                  disabled={!modoEdicionConfig}
+                                  title={g.activo ? 'Desactivar clase' : 'Activar clase'}
+                                  className="p-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                  {g.activo ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    if (!modoEdicionConfig) return;
+                                    setEditandoGrupoId(g.id);
+                                    setGrupoEditForm({ nombre: g.nombre, aplica_a: g.aplica_a, orden: g.orden });
+                                  }}
+                                  disabled={!modoEdicionConfig}
+                                  className="p-1 bg-amber-100 hover:bg-amber-200 text-amber-800 rounded disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => eliminarGrupo(g.id)}
+                                  disabled={!modoEdicionConfig}
+                                  className="p-1 bg-rose-100 hover:bg-rose-200 text-rose-700 rounded disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </td>
+                            </>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </div>
