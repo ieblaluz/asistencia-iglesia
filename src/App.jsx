@@ -3,6 +3,7 @@ import { supabase } from './supabaseClient';
 import { guardarLocalmente, sincronizarConSupabase, obtenerRegistrosPendientes } from './offlineSync';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import { ReporteMensualPDF, ReporteAnualPDF, ReportePromediosPDF } from './ReportePDF';
+import { Capacitor } from '@capacitor/core';
 
 import { 
   Calendar, 
@@ -32,7 +33,9 @@ import {
   EyeOff,
   Upload,
   Lock,
-  Unlock
+  Unlock,
+  Smartphone,
+  Monitor
 } from 'lucide-react';
 
 const MESES = [
@@ -60,6 +63,9 @@ const formatearFechaLatina = (fechaISO) => {
 
 export default function App() {
   const [tab, setTab] = useState('registro');
+
+  // --- DETECCIÓN DE PLATAFORMA NATIVA (APK Android/iOS vs Web) ---
+  const esAppNativa = Capacitor.isNativePlatform();
 
   // --- ESTADOS DE SINCRONIZACIÓN OFFLINE ---
   const [pendientes, setPendientes] = useState(obtenerRegistrosPendientes());
@@ -93,7 +99,7 @@ export default function App() {
     logo_url: ''
   });
   const [listaGrupos, setListaGrupos] = useState([]);
-  const [modoEdicionConfig, setModoEdicionConfig] = useState(false); // Estado para solo lectura / edición en Ajustes
+  const [modoEdicionConfig, setModoEdicionConfig] = useState(false);
 
   // --- ESTADOS DE REGISTRO ---
   const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
@@ -232,7 +238,7 @@ export default function App() {
     if (!navigator.onLine) {
       guardarLocalmente(filas);
       setPendientes(obtenerRegistrosPendientes());
-      setMensaje({ tipo: 'exito', texto: 'Sin conexión a internet. La asistencia se guardó localmente en el móvil y se subirá automáticamente al conectar.' });
+      setMensaje({ tipo: 'exito', texto: 'Sin conexión a internet. La asistencia se guardó localmente en el dispositivo y se subirá automáticamente al conectar.' });
       setCantidades(obtenerValoresVacios());
       setExisteRegistro(true);
       setCargando(false);
@@ -505,69 +511,78 @@ export default function App() {
   });
 
   return (
-    <div className="flex min-h-screen bg-slate-100 text-slate-800 font-sans">
-      {/* BARRA LATERAL (SIDEBAR) */}
-      <aside className="w-64 bg-amber-900 text-white flex flex-col justify-between p-4 shrink-0 shadow-lg">
-        <div className="space-y-6">
-          {/* Encabezado Logo / Nombre */}
+    <div className="flex flex-col md:flex-row min-h-screen bg-slate-100 text-slate-800 font-sans w-full overflow-x-hidden">
+      {/* BARRA LATERAL / CABECERA RESPONSIVA
+          - Móvil: Barra superior fija con menú horizontal.
+          - Tablet / PC (md:): Menú lateral fijo a la izquierda de 264px.
+      */}
+      <aside className="bg-amber-900 text-white sticky top-0 z-50 md:relative md:w-64 md:min-h-screen md:shrink-0 flex flex-col justify-between p-3 md:p-4 shadow-lg">
+        <div className="space-y-3 md:space-y-6">
+          {/* Logo y Nombre de la Iglesia */}
           <div className="flex items-center gap-3 p-2 bg-amber-950/40 rounded-xl">
             {configIglesia.logo_url ? (
-              <img src={configIglesia.logo_url} alt="Logo" className="w-10 h-10 rounded-lg object-cover bg-white p-0.5" />
+              <img src={configIglesia.logo_url} alt="Logo" className="w-9 h-9 md:w-10 md:h-10 rounded-lg object-cover bg-white p-0.5 shrink-0" />
             ) : (
-              <div className="bg-amber-100 text-amber-900 w-10 h-10 rounded-lg flex items-center justify-center font-black text-xl">✝</div>
+              <div className="bg-amber-100 text-amber-900 w-9 h-9 md:w-10 md:h-10 rounded-lg flex items-center justify-center font-black text-lg md:text-xl shrink-0">✝</div>
             )}
-            <div>
-              <h1 className="font-bold text-sm leading-tight">{configIglesia.nombre_iglesia}</h1>
-              <p className="text-amber-200 text-[11px] font-medium">{configIglesia.direccion}</p>
+            <div className="min-w-0 flex-1">
+              <h1 className="font-bold text-xs md:text-sm leading-tight truncate">{configIglesia.nombre_iglesia}</h1>
+              <p className="text-amber-200 text-[10px] md:text-[11px] font-medium truncate">{configIglesia.direccion}</p>
             </div>
           </div>
 
-          {/* Menú de Navegación Vertical */}
-          <nav className="space-y-1.5">
+          {/* Navegación Pestañas */}
+          <nav className="flex md:flex-col gap-1.5 bg-amber-950/30 md:bg-transparent p-1 md:p-0 rounded-xl">
             <button
               onClick={() => setTab('registro')}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs uppercase transition ${
+              className={`flex-1 md:flex-none flex items-center justify-center md:justify-start gap-2 px-3 md:px-4 py-2.5 md:py-3 rounded-xl font-bold text-xs uppercase transition ${
                 tab === 'registro' ? 'bg-amber-600 text-white shadow-md' : 'text-amber-200 hover:bg-amber-800/60 hover:text-white'
               }`}
             >
-              <ClipboardList className="w-4 h-4" />
-              REGISTRO
+              <ClipboardList className="w-4 h-4 shrink-0" />
+              <span>REGISTRO</span>
             </button>
             <button
               onClick={() => setTab('reportes')}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs uppercase transition ${
+              className={`flex-1 md:flex-none flex items-center justify-center md:justify-start gap-2 px-3 md:px-4 py-2.5 md:py-3 rounded-xl font-bold text-xs uppercase transition ${
                 tab === 'reportes' ? 'bg-amber-600 text-white shadow-md' : 'text-amber-200 hover:bg-amber-800/60 hover:text-white'
               }`}
             >
-              <BarChart3 className="w-4 h-4" />
-              REPORTES
+              <BarChart3 className="w-4 h-4 shrink-0" />
+              <span>REPORTES</span>
             </button>
             <button
               onClick={() => setTab('configuracion')}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs uppercase transition ${
+              className={`flex-1 md:flex-none flex items-center justify-center md:justify-start gap-2 px-3 md:px-4 py-2.5 md:py-3 rounded-xl font-bold text-xs uppercase transition ${
                 tab === 'configuracion' ? 'bg-amber-600 text-white shadow-md' : 'text-amber-200 hover:bg-amber-800/60 hover:text-white'
               }`}
             >
-              <Settings className="w-4 h-4" />
-              AJUSTES
+              <Settings className="w-4 h-4 shrink-0" />
+              <span>AJUSTES</span>
             </button>
           </nav>
         </div>
 
-        {/* Footer Barra Lateral */}
-        <div className="text-center pt-4 border-t border-amber-800/60">
-          <p className="text-amber-300/80 font-bold text-xs">Gestión de Asistencia</p>
-          <p className="text-amber-400/60 text-[10px]">v1.2.0</p>
+        {/* Footer Sidebar & Indicador de Modo Nativo */}
+        <div className="hidden md:block text-center pt-4 border-t border-amber-800/60">
+          <div className="flex items-center justify-center gap-1.5 text-amber-300/80 text-xs font-bold mb-1">
+            {esAppNativa ? (
+              <span className="flex items-center gap-1"><Smartphone className="w-3.5 h-3.5" /> App Móvil Nativa</span>
+            ) : (
+              <span className="flex items-center gap-1"><Monitor className="w-3.5 h-3.5" /> Modo Web Escritorio</span>
+            )}
+          </div>
+          <p className="text-amber-400/60 text-[10px]">v1.2.0 · Gestión de Asistencia</p>
         </div>
       </aside>
 
       {/* ÁREA DE CONTENIDO PRINCIPAL */}
-      <main className="flex-1 p-6 overflow-y-auto">
+      <main className="flex-1 p-3 md:p-6 overflow-y-auto max-w-7xl mx-auto w-full">
 
         {/* Indicador visual de estado offline */}
         {!isOnline && (
           <div className="bg-amber-500 text-white p-2.5 rounded-xl mb-4 text-center font-semibold text-xs shadow-sm">
-            ⚠️ Modo Sin Conexión (Offline). Los registros se guardarán en tu dispositivo.
+            ⚠️ Modo Sin Conexión (Offline). Los registros se guardarán localmente en el dispositivo.
           </div>
         )}
 
@@ -685,8 +700,8 @@ export default function App() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   {gruposAmostrar.map((g) => (
                     <div key={g.id} className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200 hover:border-amber-400 transition">
-                      <span className="font-bold text-xs text-slate-700">{g.nombre}</span>
-                      <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-xs text-slate-700 pr-2 truncate">{g.nombre}</span>
+                      <div className="flex items-center gap-1.5 shrink-0">
                         <button
                           type="button"
                           onClick={() => modificarCantidad(g.nombre, -1)}
@@ -739,7 +754,7 @@ export default function App() {
           <div className="space-y-4">
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4 border-b border-slate-100 pb-3">
-                <div className="flex bg-slate-100 p-1 rounded-xl gap-1">
+                <div className="flex bg-slate-100 p-1 rounded-xl gap-1 overflow-x-auto">
                   <button
                     onClick={() => setSubTabReporte('mensual')}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold uppercase transition ${
@@ -766,7 +781,7 @@ export default function App() {
                   </button>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <Filter className="w-4 h-4 text-slate-400 hidden sm:block" />
                   {subTabReporte === 'mensual' && (
                     <select
@@ -793,7 +808,7 @@ export default function App() {
                     <PDFDownloadLink
                       document={<ReporteMensualPDF datos={datosReporte} mesNombre={MESES.find(m => m.id === mesReporte)?.nombre} anio={anioReporte} config={configIglesia} />}
                       fileName={`reporte_mensual_${mesReporte}_${anioReporte}.pdf`}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-800 hover:bg-amber-900 text-white rounded-lg text-xs font-bold transition shadow-sm ml-2 cursor-pointer"
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-800 hover:bg-amber-900 text-white rounded-lg text-xs font-bold transition shadow-sm ml-auto sm:ml-2 cursor-pointer"
                     >
                       {({ loading }) => (
                         <>
@@ -808,7 +823,7 @@ export default function App() {
                     <PDFDownloadLink
                       document={<ReporteAnualPDF datos={datosReporte} anio={anioReporte} config={configIglesia} />}
                       fileName={`reporte_anual_${anioReporte}.pdf`}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-800 hover:bg-amber-900 text-white rounded-lg text-xs font-bold transition shadow-sm ml-2 cursor-pointer"
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-800 hover:bg-amber-900 text-white rounded-lg text-xs font-bold transition shadow-sm ml-auto sm:ml-2 cursor-pointer"
                     >
                       {({ loading }) => (
                         <>
@@ -823,7 +838,7 @@ export default function App() {
                     <PDFDownloadLink
                       document={<ReportePromediosPDF datos={datosReporte} anio={anioReporte} config={configIglesia} />}
                       fileName={`reporte_promedios_${anioReporte}.pdf`}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-800 hover:bg-amber-900 text-white rounded-lg text-xs font-bold transition shadow-sm ml-2 cursor-pointer"
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-800 hover:bg-amber-900 text-white rounded-lg text-xs font-bold transition shadow-sm ml-auto sm:ml-2 cursor-pointer"
                     >
                       {({ loading }) => (
                         <>
@@ -849,17 +864,17 @@ export default function App() {
           </div>
         )}
 
-        {/* PESTAÑA AJUSTES / CONFIGURACIÓN CON CONTROL DE MODO LECTURA Y EDICIÓN */}
+        {/* PESTAÑA AJUSTES / CONFIGURACIÓN */}
         {tab === 'configuracion' && (
           <div className="space-y-4">
-            {/* BANNER SUPERIOR: INTERRUPTOR DE MODO LECTURA / MODO EDICIÓN */}
-            <div className={`p-3.5 rounded-xl border flex items-center justify-between transition-all ${
+            {/* CONTROL DE MODO LECTURA / MODO EDICIÓN */}
+            <div className={`p-3.5 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all ${
               modoEdicionConfig 
                 ? 'bg-amber-50 border-amber-300 text-amber-950' 
                 : 'bg-slate-200/80 border-slate-300 text-slate-700'
             }`}>
               <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg ${modoEdicionConfig ? 'bg-amber-600 text-white' : 'bg-slate-400 text-white'}`}>
+                <div className={`p-2 rounded-lg shrink-0 ${modoEdicionConfig ? 'bg-amber-600 text-white' : 'bg-slate-400 text-white'}`}>
                   {modoEdicionConfig ? <Unlock className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
                 </div>
                 <div>
@@ -877,7 +892,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setModoEdicionConfig(!modoEdicionConfig)}
-                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm ${
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm shrink-0 ${
                   modoEdicionConfig
                     ? 'bg-slate-800 hover:bg-slate-900 text-white'
                     : 'bg-amber-600 hover:bg-amber-700 text-white'
@@ -928,7 +943,7 @@ export default function App() {
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Logo de la Iglesia (Seleccionar de la PC)</label>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Logo de la Iglesia (Seleccionar del dispositivo)</label>
                     <div className="flex items-center gap-2 border border-slate-200 p-2 rounded-lg bg-slate-50">
                       {formConfig.logo_url ? (
                         <img src={formConfig.logo_url} alt="Logo Prev" className="w-10 h-10 object-cover rounded border bg-white p-0.5 shrink-0" />
@@ -1104,7 +1119,7 @@ export default function App() {
         )}
       </main>
 
-      {/* MODAL EDITAR */}
+      {/* MODAL EDITAR REGISTRO */}
       {mostrarModalEditar && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 overflow-y-auto">
           <div className="bg-white rounded-xl shadow-xl max-w-xl w-full p-5 border border-slate-200 my-4">
@@ -1171,8 +1186,8 @@ export default function App() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[45vh] overflow-y-auto pr-1">
                 {gruposAmostrarEdit.map((g) => (
                   <div key={g.id} className="flex items-center justify-between p-2 bg-slate-50 rounded-lg border border-slate-200">
-                    <span className="font-bold text-xs text-slate-700">{g.nombre}</span>
-                    <div className="flex items-center gap-1">
+                    <span className="font-bold text-xs text-slate-700 truncate pr-2">{g.nombre}</span>
+                    <div className="flex items-center gap-1 shrink-0">
                       <button
                         type="button"
                         onClick={() => setEditCantidades({ ...editCantidades, [g.nombre]: Math.max(0, (editCantidades[g.nombre] || 0) - 1) })}
@@ -1457,8 +1472,8 @@ function VistaPromedios({ datos, anio, config }) {
   const totalGeneralPromedio = Number((subtotalDomManana + subtotalDomTarde + subtotalMiercoles).toFixed(1));
 
   return (
-    <div className="max-w-2xl mx-auto bg-white p-4 rounded-xl border border-slate-200 font-sans">
-      <div className="flex justify-between items-center mb-4 border-b pb-3">
+    <div className="max-w-3xl mx-auto bg-white p-4 rounded-xl border border-slate-200 font-sans space-y-4">
+      <div className="flex justify-between items-center border-b pb-3">
         <div className="flex items-center gap-3">
           {config.logo_url ? (
             <img src={config.logo_url} alt="Logo" className="w-10 h-10 rounded object-cover" />
@@ -1476,66 +1491,97 @@ function VistaPromedios({ datos, anio, config }) {
         </div>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-xs border-collapse">
+      {/* TABLA DOMINGO MAÑANA */}
+      <div>
+        <h4 className="text-xs font-bold text-amber-900 uppercase mb-1">Cultos Dominicales - Turno Mañana ({numDomManana} cultos)</h4>
+        <table className="w-full text-xs border-collapse border border-slate-200">
           <thead>
             <tr className="bg-amber-700 text-white font-bold">
-              <th className="p-2 border border-amber-800 text-left">Cultos / Clases</th>
-              <th className="p-2 border border-amber-800 text-right w-48">Promedio de Asistencia</th>
+              <th className="p-1.5 text-left border">Clase / Grupo</th>
+              <th className="p-1.5 text-center w-28 border">Promedio</th>
             </tr>
           </thead>
           <tbody>
-            {rowsDomManana.length > 0 && (
-              <>
-                <tr className="bg-amber-100/90 font-bold text-amber-950 border-t border-amber-300">
-                  <td className="p-2 border border-amber-200">➖ Domingo Mañana ({numDomManana} cultos)</td>
-                  <td className="p-2 text-right border border-amber-200 font-black text-sm text-amber-900">{subtotalDomManana.toFixed(1)}</td>
+            {rowsDomManana.length === 0 ? (
+              <tr><td colSpan={2} className="p-2 text-center text-slate-400">Sin datos registrados</td></tr>
+            ) : (
+              rowsDomManana.map(r => (
+                <tr key={r.clase} className="border-b hover:bg-amber-50/50">
+                  <td className="p-1.5 border">{r.clase}</td>
+                  <td className="p-1.5 border text-center font-bold">{r.promedio}</td>
                 </tr>
-                {rowsDomManana.map(r => (
-                  <tr key={`dm_${r.clase}`} className="border-b border-slate-100 hover:bg-amber-50/50">
-                    <td className="p-1.5 pl-6 border-x border-slate-200 text-slate-800">{r.clase}</td>
-                    <td className="p-1.5 border-x border-slate-200 text-right font-semibold">{r.promedio.toFixed(1)}</td>
-                  </tr>
-                ))}
-              </>
+              ))
             )}
-
-            {rowsDomTarde.length > 0 && (
-              <>
-                <tr className="bg-amber-100/90 font-bold text-amber-950 border-t border-amber-300">
-                  <td className="p-2 border border-amber-200">➖ Domingo Tarde ({numDomTarde} cultos)</td>
-                  <td className="p-2 text-right border border-amber-200 font-black text-sm text-amber-900">{subtotalDomTarde.toFixed(1)}</td>
-                </tr>
-                {rowsDomTarde.map(r => (
-                  <tr key={`dt_${r.clase}`} className="border-b border-slate-100 hover:bg-amber-50/50">
-                    <td className="p-1.5 pl-6 border-x border-slate-200 text-slate-800">{r.clase}</td>
-                    <td className="p-1.5 border-x border-slate-200 text-right font-semibold">{r.promedio.toFixed(1)}</td>
-                  </tr>
-                ))}
-              </>
-            )}
-
-            {rowsMiercoles.length > 0 && (
-              <>
-                <tr className="bg-amber-100/90 font-bold text-amber-950 border-t border-amber-300">
-                  <td className="p-2 border border-amber-200">➖ Miércoles Tarde ({numMiercoles} cultos)</td>
-                  <td className="p-2 text-right border border-amber-200 font-black text-sm text-amber-900">{subtotalMiercoles.toFixed(1)}</td>
-                </tr>
-                {rowsMiercoles.map(r => (
-                  <tr key={`mi_${r.clase}`} className="border-b border-slate-100 hover:bg-amber-50/50">
-                    <td className="p-1.5 pl-6 border-x border-slate-200 text-slate-800">{r.clase}</td>
-                    <td className="p-1.5 border-x border-slate-200 text-right font-semibold">{r.promedio.toFixed(1)}</td>
-                  </tr>
-                ))}
-              </>
-            )}
-
-            <tr className="bg-amber-900 text-white font-black text-sm border-t-2 border-amber-900">
-              <td className="p-2.5">Promedio Total Acumulado</td>
-              <td className="p-2.5 text-right text-amber-200">{totalGeneralPromedio.toFixed(1)}</td>
+            <tr className="bg-amber-100 font-bold text-amber-950">
+              <td className="p-1.5 border">Subtotal Mañana</td>
+              <td className="p-1.5 border text-center">{subtotalDomManana.toFixed(1)}</td>
             </tr>
           </tbody>
         </table>
+      </div>
+
+      {/* TABLA DOMINGO TARDE */}
+      <div>
+        <h4 className="text-xs font-bold text-amber-900 uppercase mb-1">Cultos Dominicales - Turno Tarde ({numDomTarde} cultos)</h4>
+        <table className="w-full text-xs border-collapse border border-slate-200">
+          <thead>
+            <tr className="bg-amber-700 text-white font-bold">
+              <th className="p-1.5 text-left border">Clase / Grupo</th>
+              <th className="p-1.5 text-center w-28 border">Promedio</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rowsDomTarde.length === 0 ? (
+              <tr><td colSpan={2} className="p-2 text-center text-slate-400">Sin datos registrados</td></tr>
+            ) : (
+              rowsDomTarde.map(r => (
+                <tr key={r.clase} className="border-b hover:bg-amber-50/50">
+                  <td className="p-1.5 border">{r.clase}</td>
+                  <td className="p-1.5 border text-center font-bold">{r.promedio}</td>
+                </tr>
+              ))
+            )}
+            <tr className="bg-amber-100 font-bold text-amber-950">
+              <td className="p-1.5 border">Subtotal Tarde</td>
+              <td className="p-1.5 border text-center">{subtotalDomTarde.toFixed(1)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {/* TABLA MIÉRCOLES */}
+      <div>
+        <h4 className="text-xs font-bold text-amber-900 uppercase mb-1">Cultos de Miércoles ({numMiercoles} cultos)</h4>
+        <table className="w-full text-xs border-collapse border border-slate-200">
+          <thead>
+            <tr className="bg-amber-700 text-white font-bold">
+              <th className="p-1.5 text-left border">Clase / Grupo</th>
+              <th className="p-1.5 text-center w-28 border">Promedio</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rowsMiercoles.length === 0 ? (
+              <tr><td colSpan={2} className="p-2 text-center text-slate-400">Sin datos registrados</td></tr>
+            ) : (
+              rowsMiercoles.map(r => (
+                <tr key={r.clase} className="border-b hover:bg-amber-50/50">
+                  <td className="p-1.5 border">{r.clase}</td>
+                  <td className="p-1.5 border text-center font-bold">{r.promedio}</td>
+                </tr>
+              ))
+            )}
+            <tr className="bg-amber-100 font-bold text-amber-950">
+              <td className="p-1.5 border">Subtotal Miércoles</td>
+              <td className="p-1.5 border text-center">{subtotalMiercoles.toFixed(1)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {/* TOTAL GENERAL DE PROMEDIOS */}
+      <div className="bg-amber-900 text-white p-3 rounded-xl flex justify-between items-center font-black text-sm">
+        <span>PROMEDIO GENERAL DE ASISTENCIA</span>
+        <span>{totalGeneralPromedio}</span>
       </div>
     </div>
   );
