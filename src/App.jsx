@@ -120,6 +120,7 @@ export default function App() {
   const [subTabReporte, setSubTabReporte] = useState('mensual');
   const [anioReporte, setAnioReporte] = useState(new Date().getFullYear().toString());
   const [mesReporte, setMesReporte] = useState(String(new Date().getMonth() + 1).padStart(2, '0'));
+  const [promedioMes, setPromedioMes] = useState('ALL');
   const [datosReporte, setDatosReporte] = useState([]);
   const [cargandoReporte, setCargandoReporte] = useState(false);
 
@@ -352,6 +353,11 @@ export default function App() {
         const ultimoDia = new Date(parseInt(anioReporte), parseInt(mesReporte), 0).getDate();
         const finMes = `${anioReporte}-${mesReporte}-${String(ultimoDia).padStart(2, '0')}`;
         query = query.gte('fecha', inicioMes).lte('fecha', finMes);
+      } else if (subTabReporte === 'promedios' && promedioMes !== 'ALL') {
+        const inicioMes = `${anioReporte}-${promedioMes}-01`;
+        const ultimoDia = new Date(parseInt(anioReporte), parseInt(promedioMes), 0).getDate();
+        const finMes = `${anioReporte}-${promedioMes}-${String(ultimoDia).padStart(2, '0')}`;
+        query = query.gte('fecha', inicioMes).lte('fecha', finMes);
       } else {
         const inicioAnio = `${anioReporte}-01-01`;
         const finAnio = `${anioReporte}-12-31`;
@@ -367,11 +373,11 @@ export default function App() {
     } finally {
       setCargandoReporte(false);
     }
-  }, [subTabReporte, anioReporte, mesReporte]);
+  }, [subTabReporte, anioReporte, mesReporte, promedioMes]);
 
   useEffect(() => {
     if (tab === 'reportes') cargarReportes();
-  }, [tab, subTabReporte, anioReporte, mesReporte, cargarReportes]);
+  }, [tab, subTabReporte, anioReporte, mesReporte, promedioMes, cargarReportes]);
 
   // CONFIGURACIÓN: LOGO Y CLASES
   const handleLogoImagen = (e) => {
@@ -512,10 +518,7 @@ export default function App() {
 
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-slate-100 text-slate-800 font-sans w-full overflow-x-hidden">
-      {/* BARRA LATERAL / CABECERA RESPONSIVA
-          - Móvil: Barra superior fija con menú horizontal.
-          - Tablet / PC (md:): Menú lateral fijo a la izquierda de 264px.
-      */}
+      {/* BARRA LATERAL / CABECERA RESPONSIVA */}
       <aside className="bg-amber-900 text-white sticky top-0 z-50 md:relative md:w-64 md:min-h-screen md:shrink-0 flex flex-col justify-between p-3 md:p-4 shadow-lg">
         <div className="space-y-3 md:space-y-6">
           {/* Logo y Nombre de la Iglesia */}
@@ -783,6 +786,8 @@ export default function App() {
 
                 <div className="flex flex-wrap items-center gap-2">
                   <Filter className="w-4 h-4 text-slate-400 hidden sm:block" />
+                  
+                  {/* Selector de Mes para Vista Mensual */}
                   {subTabReporte === 'mensual' && (
                     <select
                       value={mesReporte}
@@ -794,6 +799,22 @@ export default function App() {
                       ))}
                     </select>
                   )}
+
+                  {/* Selector de Mes/Anual para Vista Promedios */}
+                  {subTabReporte === 'promedios' && (
+                    <select
+                      value={promedioMes}
+                      onChange={(e) => setPromedioMes(e.target.value)}
+                      className="px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-lg font-bold text-xs text-slate-700"
+                    >
+                      <option value="ALL">Todo el año (Anual)</option>
+                      {MESES.map((m) => (
+                        <option key={m.id} value={m.id}>{m.nombre}</option>
+                      ))}
+                    </select>
+                  )}
+
+                  {/* Selector de Año */}
                   <select
                     value={anioReporte}
                     onChange={(e) => setAnioReporte(e.target.value)}
@@ -804,6 +825,7 @@ export default function App() {
                     ))}
                   </select>
 
+                  {/* Botones de Descargar PDF */}
                   {subTabReporte === 'mensual' && (
                     <PDFDownloadLink
                       document={<ReporteMensualPDF datos={datosReporte} mesNombre={MESES.find(m => m.id === mesReporte)?.nombre} anio={anioReporte} config={configIglesia} />}
@@ -857,7 +879,7 @@ export default function App() {
                 <>
                   {subTabReporte === 'mensual' && <VistaReporteMensual datos={datosReporte} mesNombre={MESES.find(m => m.id === mesReporte)?.nombre} anio={anioReporte} config={configIglesia} />}
                   {subTabReporte === 'anual' && <VistaReporteAnual datos={datosReporte} anio={anioReporte} config={configIglesia} />}
-                  {subTabReporte === 'promedios' && <VistaPromedios datos={datosReporte} anio={anioReporte} config={configIglesia} />}
+                  {subTabReporte === 'promedios' && <VistaPromedios datos={datosReporte} anio={anioReporte} promedioMes={promedioMes} config={configIglesia} />}
                 </>
               )}
             </div>
@@ -1426,7 +1448,7 @@ function VistaReporteAnual({ datos, anio, config }) {
   );
 }
 
-function VistaPromedios({ datos, anio, config }) {
+function VistaPromedios({ datos, anio, promedioMes, config }) {
   const fechasDomManana = new Set(datos.filter(d => d.turno === 'Mañana').map(d => d.fecha));
   const fechasDomTarde = new Set(
     datos.filter(d => d.turno === 'Tarde' && new Date(d.fecha + 'T00:00:00').getDay() !== 3).map(d => d.fecha)
@@ -1487,7 +1509,11 @@ function VistaPromedios({ datos, anio, config }) {
         </div>
         <div className="text-right">
           <h3 className="text-base font-black text-slate-800 tracking-tight">PROMEDIOS DE ASISTENCIA</h3>
-          <p className="text-xs font-bold text-amber-800">AÑO: {anio}</p>
+          <p className="text-xs font-bold text-amber-800">
+            {promedioMes === 'ALL' || !promedioMes
+              ? `AÑO: ${anio}`
+              : `${MESES.find(m => m.id === promedioMes)?.nombre.toUpperCase()} ${anio}`}
+          </p>
         </div>
       </div>
 
