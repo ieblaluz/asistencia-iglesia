@@ -115,6 +115,7 @@ export default function App() {
   const [editTurno, setEditTurno] = useState('Mañana');
   const [editCantidades, setEditCantidades] = useState({});
   const [cargandoModal, setCargandoModal] = useState(false);
+  const [editExisteRegistro, setEditExisteRegistro] = useState(false);
 
   // --- ESTADOS DE REPORTES ---
   const [subTabReporte, setSubTabReporte] = useState('mensual');
@@ -190,6 +191,8 @@ export default function App() {
   };
 
   const handleTurnoChange = (nuevoTurno) => {
+    // Los miércoles solo hay culto de tarde
+    if (nuevoTurno === 'Mañana' && new Date(fecha + 'T00:00:00').getDay() === 3) return;
     setTurno(nuevoTurno);
     setCantidades(obtenerValoresVacios());
     comprobarRegistroExistente(fecha, nuevoTurno);
@@ -281,6 +284,7 @@ export default function App() {
 
   const cargarDatosParaEditar = async (f, t) => {
     setCargandoModal(true);
+    setEditExisteRegistro(false);
     const iniciales = obtenerValoresVacios();
 
     try {
@@ -297,6 +301,7 @@ export default function App() {
           iniciales[item.clase] = item.cantidad;
         });
       }
+      setEditExisteRegistro(!!(data && data.length > 0));
       setEditCantidades(iniciales);
     } catch (err) {
       console.error('Error al cargar datos en modal:', err);
@@ -306,13 +311,18 @@ export default function App() {
   };
 
   const guardarEdicionModal = async () => {
+    if (editTurno === 'Mañana' && new Date(editFecha + 'T00:00:00').getDay() === 3) {
+      alert('Los miércoles solo hay culto de tarde.');
+      return;
+    }
     setCargandoModal(true);
     try {
-      await supabase
+      const { error: delError } = await supabase
         .from('asistencia')
         .delete()
         .eq('fecha', editFecha)
         .eq('turno', editTurno);
+      if (delError) throw delError;
 
       const esMiercolesEdit = new Date(editFecha + 'T00:00:00').getDay() === 3;
       const gruposAInsertar = listaGrupos.filter(g => {
@@ -337,6 +347,32 @@ export default function App() {
     } catch (err) {
       console.error('Error al modificar:', err);
       alert('Error al guardar las modificaciones');
+    } finally {
+      setCargandoModal(false);
+    }
+  };
+
+  const eliminarRegistroModal = async () => {
+    const confirmado = window.confirm(
+      `¿Seguro que deseas ELIMINAR el registro del ${formatearFechaLatina(editFecha)} (${editTurno})?\n\nEsta acción no se puede deshacer.`
+    );
+    if (!confirmado) return;
+
+    setCargandoModal(true);
+    try {
+      const { error } = await supabase
+        .from('asistencia')
+        .delete()
+        .eq('fecha', editFecha)
+        .eq('turno', editTurno);
+      if (error) throw error;
+
+      setMostrarModalEditar(false);
+      setMensaje({ tipo: 'exito', texto: `Registro del ${formatearFechaLatina(editFecha)} (${editTurno}) eliminado.` });
+      comprobarRegistroExistente(fecha, turno);
+    } catch (err) {
+      console.error('Error al eliminar:', err);
+      alert('Error al eliminar el registro');
     } finally {
       setCargandoModal(false);
     }
@@ -677,8 +713,12 @@ export default function App() {
                           key={t}
                           type="button"
                           onClick={() => handleTurnoChange(t)}
+                          disabled={esMiercoles && t === 'Mañana'}
+                          title={esMiercoles && t === 'Mañana' ? 'Los miércoles solo hay culto de tarde' : ''}
                           className={`flex-1 py-2 px-3 rounded-lg font-bold text-xs transition flex items-center justify-center gap-1.5 border ${
-                            turno === t ? 'bg-amber-600 text-white border-amber-600 shadow-sm' : 'bg-slate-50 text-slate-600 border-slate-300 hover:bg-slate-100'
+                            esMiercoles && t === 'Mañana'
+                              ? 'bg-slate-100 text-slate-300 border-slate-200 cursor-not-allowed line-through'
+                              : turno === t ? 'bg-amber-600 text-white border-amber-600 shadow-sm' : 'bg-slate-50 text-slate-600 border-slate-300 hover:bg-slate-100'
                           }`}
                         >
                           <Clock className="w-3.5 h-3.5" />
@@ -1192,7 +1232,9 @@ export default function App() {
                         cargarDatosParaEditar(editFecha, t);
                       }}
                       className={`flex-1 py-1 rounded text-xs font-bold ${
-                        editTurno === t ? 'bg-amber-600 text-white' : 'bg-white border text-slate-600'
+                        editTurno === t
+                          ? (esMiercolesEdit && t === 'Mañana' ? 'bg-rose-600 text-white' : 'bg-amber-600 text-white')
+                          : (esMiercolesEdit && t === 'Mañana' ? 'bg-white border border-dashed text-slate-400' : 'bg-white border text-slate-600')
                       }`}
                     >
                       {t}
@@ -1237,9 +1279,27 @@ export default function App() {
               </div>
             )}
 
+            {esMiercolesEdit && editTurno === 'Mañana' && (
+              <div className="mt-3 p-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold">
+                {editExisteRegistro
+                  ? '⚠️ Este registro de miércoles por la mañana es un error (los miércoles solo hay culto de tarde). Usa “Eliminar registro” para borrarlo.'
+                  : 'Los miércoles solo hay culto de tarde. No hay nada registrado en este turno.'}
+              </div>
+            )}
+
             <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+              {editExisteRegistro && (
+                <button
+                  type="button"
+                  onClick={eliminarRegistroModal}
+                  disabled={cargandoModal}
+                  className="mr-auto px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 font-bold text-xs rounded-lg flex items-center gap-1.5"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Eliminar registro
+                </button>
+              )}
               <button type="button" onClick={() => setMostrarModalEditar(false)} className="px-3 py-2 text-slate-600 font-bold text-xs hover:bg-slate-100 rounded-lg">Cancelar</button>
-              <button type="button" onClick={guardarEdicionModal} disabled={cargandoModal} className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-lg shadow flex items-center gap-1.5">
+              <button type="button" onClick={guardarEdicionModal} disabled={cargandoModal || (esMiercolesEdit && editTurno === 'Mañana')} className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-lg shadow flex items-center gap-1.5">
                 <Save className="w-3.5 h-3.5" /> Guardar Cambios
               </button>
             </div>
