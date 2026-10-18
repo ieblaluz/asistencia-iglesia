@@ -240,7 +240,7 @@ export const ReporteAnualPDF = ({ datos = [], anio = '', config = {} }) => {
     }
   });
 
-  const mesesConDatos = Object.values(mesesMap).filter(m => m.totalMes > 0 || Object.keys(m.clases).length > 0);
+  const mesesConDatos = Object.values(mesesMap).sort((a, b) => a.numMes - b.numMes).filter(m => m.totalMes > 0 || Object.keys(m.clases).length > 0);
   let granTotalManana = 0, granTotalTarde = 0, granTotalAnio = 0;
   mesesConDatos.forEach(m => {
     granTotalManana += m.totalManana;

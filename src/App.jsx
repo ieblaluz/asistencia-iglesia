@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from './supabaseClient';
 import { guardarLocalmente, sincronizarConSupabase, obtenerRegistrosPendientes } from './offlineSync';
 import { PDFDownloadLink } from '@react-pdf/renderer';
@@ -63,6 +63,22 @@ const formatearFechaLatina = (fechaISO) => {
 
 export default function App() {
   const [tab, setTab] = useState('registro');
+
+  // Altura de la cabecera en móvil, para que la barra de filtros de reportes quede justo debajo
+  const asideRef = useRef(null);
+  useEffect(() => {
+    const el = asideRef.current;
+    if (!el) return;
+    const actualizar = () => {
+      const alto = window.innerWidth < 768 ? el.offsetHeight : 0;
+      document.documentElement.style.setProperty('--alto-cabecera', `${alto}px`);
+    };
+    actualizar();
+    const obs = new ResizeObserver(actualizar);
+    obs.observe(el);
+    window.addEventListener('resize', actualizar);
+    return () => { obs.disconnect(); window.removeEventListener('resize', actualizar); };
+  }, []);
 
   // --- DETECCIÓN DE PLATAFORMA NATIVA (APK Android/iOS vs Web) ---
   const esAppNativa = Capacitor.isNativePlatform();
@@ -220,8 +236,11 @@ export default function App() {
     }));
   };
 
+  const guardandoRef = useRef(false);
   const guardarAsistencia = async () => {
-    if (existeRegistro) return;
+    // Evita guardar dos veces si se pulsa el botón repetidamente
+    if (existeRegistro || guardandoRef.current) return;
+    guardandoRef.current = true;
     setCargando(true);
     setMensaje({ tipo: '', texto: '' });
 
@@ -246,6 +265,7 @@ export default function App() {
       setCantidades(obtenerValoresVacios());
       setExisteRegistro(true);
       setCargando(false);
+      guardandoRef.current = false;
       return;
     }
 
@@ -271,6 +291,7 @@ export default function App() {
       setExisteRegistro(true);
     } finally {
       setCargando(false);
+      guardandoRef.current = false;
     }
   };
 
@@ -504,17 +525,46 @@ export default function App() {
 
   const guardarEdicionGrupo = async (id) => {
     if (!modoEdicionConfig) return;
+    const nombreNuevo = grupoEditForm.nombre.trim().replace(/\s+/g, ' ');
+    const grupoActual = listaGrupos.find(g => g.id === id);
+    const nombreAnterior = grupoActual ? grupoActual.nombre : null;
+
+    if (!nombreNuevo) {
+      alert('El nombre no puede estar vacío.');
+      return;
+    }
+    // Evitar dos grupos con el mismo nombre (ignorando mayúsculas y espacios)
+    const normalizar = (t) => t.toLowerCase().replace(/\s+/g, '');
+    if (listaGrupos.some(g => g.id !== id && normalizar(g.nombre) === normalizar(nombreNuevo))) {
+      alert(`Ya existe un grupo llamado "${nombreNuevo}".`);
+      return;
+    }
+
+    const cambiaNombre = nombreAnterior && nombreAnterior !== nombreNuevo;
+    if (cambiaNombre && !window.confirm(
+      `Se cambiará el nombre "${nombreAnterior}" por "${nombreNuevo}".\n\nTambién se actualizarán todos los registros de asistencia anteriores de este grupo para que los reportes sigan cuadrando. ¿Continuar?`
+    )) return;
+
     try {
       const { error } = await supabase
         .from('grupos_asistencia')
         .update({
-          nombre: grupoEditForm.nombre.trim(),
+          nombre: nombreNuevo,
           aplica_a: grupoEditForm.aplica_a,
           orden: parseInt(grupoEditForm.orden) || 1
         })
         .eq('id', id);
 
       if (error) throw error;
+
+      // Renombrar también los registros históricos
+      if (cambiaNombre) {
+        const { error: errAsis } = await supabase
+          .from('asistencia')
+          .update({ clase: nombreNuevo })
+          .eq('clase', nombreAnterior);
+        if (errAsis) throw errAsis;
+      }
       setEditandoGrupoId(null);
       cargarConfiguracionYGrupos();
     } catch (err) {
@@ -553,9 +603,9 @@ export default function App() {
   });
 
   return (
-    <div className="flex flex-col md:flex-row min-h-screen bg-slate-100 text-slate-800 font-sans w-full overflow-x-hidden">
+    <div className="flex flex-col md:flex-row min-h-screen bg-slate-100 text-slate-800 font-sans w-full overflow-x-clip">
       {/* BARRA LATERAL / CABECERA RESPONSIVA */}
-      <aside className="bg-amber-900 text-white sticky top-0 z-50 md:relative md:w-64 md:min-h-screen md:shrink-0 flex flex-col justify-between p-3 md:p-4 shadow-lg">
+      <aside ref={asideRef} className="bg-amber-900 text-white sticky top-0 z-40 md:w-64 md:h-screen md:overflow-y-auto md:shrink-0 flex flex-col justify-between p-3 md:p-4 shadow-lg">
         <div className="space-y-3 md:space-y-6">
           {/* Logo y Nombre de la Iglesia */}
           <div className="flex items-center gap-3 p-2 bg-amber-950/40 rounded-xl">
@@ -616,7 +666,7 @@ export default function App() {
       </aside>
 
       {/* ÁREA DE CONTENIDO PRINCIPAL */}
-      <main className="flex-1 p-3 md:p-6 overflow-y-auto max-w-7xl mx-auto w-full">
+      <main className="flex-1 p-3 md:p-6 max-w-7xl mx-auto w-full min-w-0">
 
         {/* Indicador visual de estado offline */}
         {!isOnline && (
@@ -700,6 +750,7 @@ export default function App() {
                         type="date"
                         value={fecha}
                         onChange={(e) => handleFechaChange(e.target.value)}
+                        onClick={(e) => { try { e.currentTarget.showPicker(); } catch { /* navegador antiguo */ } }}
                         className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10"
                       />
                     </div>
@@ -755,11 +806,14 @@ export default function App() {
                         </button>
                         <input
                           type="number"
+                          inputMode="numeric"
                           min="0"
+                          placeholder="0"
                           disabled={existeRegistro}
-                          value={cantidades[g.nombre] ?? 0}
+                          value={cantidades[g.nombre] ? cantidades[g.nombre] : ''}
                           onChange={(e) => handleCantidadChange(g.nombre, e.target.value)}
-                          className="w-12 text-center py-1 font-black text-slate-800 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 text-sm disabled:bg-slate-100"
+                          onFocus={(e) => e.target.select()}
+                          className="input-cifra w-16 h-8 text-center font-bold text-base text-slate-800 placeholder:text-slate-300 placeholder:font-semibold bg-white border border-slate-200 rounded-lg outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 disabled:bg-slate-100 disabled:text-slate-400"
                         />
                         <button
                           type="button"
@@ -796,7 +850,9 @@ export default function App() {
         {tab === 'reportes' && (
           <div className="space-y-4">
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4 border-b border-slate-100 pb-3">
+              <div
+                style={{ top: 'var(--alto-cabecera, 0px)' }}
+                className="sticky z-30 bg-white -mx-4 -mt-4 px-4 pt-4 rounded-t-2xl flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4 border-b border-slate-100 pb-3 shadow-[0_6px_8px_-8px_rgba(0,0,0,0.15)]">
                 <div className="flex bg-slate-100 p-1 rounded-xl gap-1 overflow-x-auto">
                   <button
                     onClick={() => setSubTabReporte('mensual')}
@@ -1215,6 +1271,7 @@ export default function App() {
                       setEditTurno(t);
                       cargarDatosParaEditar(e.target.value, t);
                     }}
+                    onClick={(e) => { try { e.currentTarget.showPicker(); } catch { /* navegador antiguo */ } }}
                     className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10"
                   />
                 </div>
@@ -1262,9 +1319,12 @@ export default function App() {
                       <input
                         type="number"
                         min="0"
-                        value={editCantidades[g.nombre] ?? 0}
+                        inputMode="numeric"
+                        placeholder="0"
+                        value={editCantidades[g.nombre] ? editCantidades[g.nombre] : ''}
                         onChange={(e) => setEditCantidades({ ...editCantidades, [g.nombre]: Math.max(0, parseInt(e.target.value) || 0) })}
-                        className="w-10 text-center py-0.5 font-bold bg-white border rounded text-xs"
+                        onFocus={(e) => e.target.select()}
+                        className="input-cifra w-14 h-7 text-center font-bold text-sm text-slate-800 placeholder:text-slate-300 bg-white border border-slate-200 rounded-md outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
                       />
                       <button
                         type="button"
@@ -1431,7 +1491,7 @@ function VistaReporteAnual({ datos, anio, config }) {
     }
   });
 
-  const mesesConDatos = Object.values(mesesMap).filter(m => m.totalMes > 0 || Object.keys(m.clases).length > 0);
+  const mesesConDatos = Object.values(mesesMap).sort((a, b) => a.numMes - b.numMes).filter(m => m.totalMes > 0 || Object.keys(m.clases).length > 0);
   let granTotalManana = 0, granTotalTarde = 0, granTotalAnio = 0;
   mesesConDatos.forEach(m => {
     granTotalManana += m.totalManana;
@@ -1464,7 +1524,7 @@ function VistaReporteAnual({ datos, anio, config }) {
           <thead>
             <tr className="bg-amber-700 text-white font-bold">
               <th className="p-2 border border-amber-800 text-center w-12">MES</th>
-              <th className="p-2 border border-amber-800 text-left w-28">MESNom</th>
+              <th className="p-2 border border-amber-800 text-left w-28">Nombre</th>
               <th className="p-2 border border-amber-800 text-left">CLASE</th>
               <th className="p-2 border border-amber-800 text-center w-24">Mañana</th>
               <th className="p-2 border border-amber-800 text-center w-24">Tarde</th>

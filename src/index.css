@@ -6,3 +6,24 @@ body {
   user-select: none;
   -webkit-tap-highlight-color: transparent; /* Quita el recuadro gris al pulsar en móviles */
 }
+/* Campos de cifras: ocultar las flechas de subir/bajar del navegador */
+.input-cifra::-webkit-outer-spin-button,
+.input-cifra::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.input-cifra {
+  -moz-appearance: textfield;
+  appearance: textfield;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* El selector de fecha ocupa toda la caja: cursor de mano en toda ella */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}

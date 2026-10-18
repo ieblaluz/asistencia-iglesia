@@ -5,7 +5,10 @@ const QUEUE_KEY = 'asistencia_offline_queue';
 // Guardar registros localmente si no hay red
 export const guardarLocalmente = (nuevosRegistros) => {
   const colaActual = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
-  const colaActualizada = [...colaActual, ...nuevosRegistros];
+  // Si ya había en cola datos del mismo culto y grupo, se sustituyen (evita duplicados)
+  const clave = (r) => `${r.fecha}|${r.turno}|${r.clase}`;
+  const nuevasClaves = new Set(nuevosRegistros.map(clave));
+  const colaActualizada = [...colaActual.filter(r => !nuevasClaves.has(clave(r))), ...nuevosRegistros];
   localStorage.setItem(QUEUE_KEY, JSON.stringify(colaActualizada));
   return colaActualizada.length;
 };
@@ -24,7 +27,10 @@ export const sincronizarConSupabase = async () => {
   if (cola.length === 0) return { success: true, synced: 0 };
 
   try {
-    const { error } = await supabase.from('asistencia').insert(cola);
+    // upsert: si ese culto y grupo ya existen, se actualiza en vez de duplicarse
+    const { error } = await supabase
+      .from('asistencia')
+      .upsert(cola, { onConflict: 'fecha,turno,clase' });
 
     if (!error) {
       localStorage.removeItem(QUEUE_KEY);
