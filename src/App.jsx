@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from './supabaseClient';
 import { guardarLocalmente, sincronizarConSupabase, obtenerRegistrosPendientes } from './offlineSync';
+import { useAuth } from './AuthGate';
+import { registrarBitacora } from './auth';
+import PanelUsuarios from './PanelUsuarios';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import { ReporteMensualPDF, ReporteAnualPDF, ReportePromediosPDF } from './ReportePDF';
 import { Capacitor } from '@capacitor/core';
@@ -35,7 +38,10 @@ import {
   Lock,
   Unlock,
   Smartphone,
-  Monitor
+  Monitor,
+  Users,
+  User,
+  LogOut
 } from 'lucide-react';
 
 const MESES = [
@@ -62,6 +68,7 @@ const formatearFechaLatina = (fechaISO) => {
 };
 
 export default function App() {
+  const { perfil, esAdmin, cerrarSesion } = useAuth();
   const [tab, setTab] = useState('registro');
 
   // Altura de la cabecera en móvil, para que la barra de filtros de reportes quede justo debajo
@@ -280,6 +287,7 @@ export default function App() {
       if (insError) throw insError;
 
       setMensaje({ tipo: 'exito', texto: '¡Asistencia guardada con éxito en la nube!' });
+      registrarBitacora('Registró asistencia', `${formatearFechaLatina(fecha)} (${turno}) – Total: ${Object.values(cantidades).reduce((a, b) => a + (parseInt(b) || 0), 0)}`);
       setCantidades(obtenerValoresVacios());
       setExisteRegistro(true);
     } catch (err) {
@@ -364,6 +372,7 @@ export default function App() {
 
       setMostrarModalEditar(false);
       setMensaje({ tipo: 'exito', texto: '¡Registro modificado con éxito!' });
+      registrarBitacora('Modificó asistencia', `${formatearFechaLatina(editFecha)} (${editTurno}) – Total: ${Object.values(editCantidades).reduce((a, b) => a + (parseInt(b) || 0), 0)}`);
       comprobarRegistroExistente(fecha, turno);
     } catch (err) {
       console.error('Error al modificar:', err);
@@ -390,6 +399,7 @@ export default function App() {
 
       setMostrarModalEditar(false);
       setMensaje({ tipo: 'exito', texto: `Registro del ${formatearFechaLatina(editFecha)} (${editTurno}) eliminado.` });
+      registrarBitacora('Eliminó asistencia', `${formatearFechaLatina(editFecha)} (${editTurno})`);
       comprobarRegistroExistente(fecha, turno);
     } catch (err) {
       console.error('Error al eliminar:', err);
@@ -464,6 +474,7 @@ export default function App() {
 
       if (error) throw error;
       setConfigIglesia(formConfig);
+      registrarBitacora('Modificó datos de la iglesia', formConfig.nombre_iglesia);
       alert('¡Configuración e imagen guardadas con éxito!');
     } catch (err) {
       console.error('Error al guardar configuración:', err);
@@ -499,6 +510,7 @@ export default function App() {
       }]);
 
       if (error) throw error;
+      registrarBitacora('Creó grupo', nombreLimpio);
       setNuevoGrupo({ nombre: '', aplica_a: 'domingo', orden: listaGrupos.length + 2 });
       cargarConfiguracionYGrupos();
       alert('✅ Clase creada correctamente.');
@@ -517,6 +529,7 @@ export default function App() {
         .eq('id', grupo.id);
 
       if (error) throw error;
+      registrarBitacora(grupo.activo ? 'Ocultó grupo' : 'Activó grupo', grupo.nombre);
       cargarConfiguracionYGrupos();
     } catch (err) {
       console.error('Error al cambiar estado:', err);
@@ -565,6 +578,7 @@ export default function App() {
           .eq('clase', nombreAnterior);
         if (errAsis) throw errAsis;
       }
+      registrarBitacora('Modificó grupo', cambiaNombre ? `${nombreAnterior} → ${nombreNuevo}` : nombreNuevo);
       setEditandoGrupoId(null);
       cargarConfiguracionYGrupos();
     } catch (err) {
@@ -579,6 +593,7 @@ export default function App() {
     try {
       const { error } = await supabase.from('grupos_asistencia').delete().eq('id', id);
       if (error) throw error;
+      registrarBitacora('Eliminó grupo', listaGrupos.find(g => g.id === id)?.nombre || '');
       cargarConfiguracionYGrupos();
     } catch (err) {
       console.error('Error al eliminar grupo:', err);
@@ -649,11 +664,32 @@ export default function App() {
               <Settings className="w-4 h-4 shrink-0" />
               <span>AJUSTES</span>
             </button>
+            <button
+              onClick={() => setTab('usuarios')}
+              className={`flex-1 md:flex-none flex items-center justify-center md:justify-start gap-2 px-3 md:px-4 py-2.5 md:py-3 rounded-xl font-bold text-xs uppercase transition ${
+                tab === 'usuarios' ? 'bg-amber-600 text-white shadow-md' : 'text-amber-200 hover:bg-amber-800/60 hover:text-white'
+              }`}
+            >
+              {esAdmin ? <Users className="w-4 h-4 shrink-0" /> : <User className="w-4 h-4 shrink-0" />}
+              <span>{esAdmin ? 'USUARIOS' : 'MI CUENTA'}</span>
+            </button>
           </nav>
         </div>
 
         {/* Footer Sidebar & Indicador de Modo Nativo */}
         <div className="hidden md:block text-center pt-4 border-t border-amber-800/60">
+          <div className="flex items-center gap-2 mb-3 p-2 bg-amber-950/40 rounded-xl text-left">
+            <div className="w-8 h-8 rounded-full bg-amber-600 flex items-center justify-center font-bold text-sm shrink-0">
+              {(perfil?.nombre || '?').charAt(0).toUpperCase()}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-bold truncate">{perfil?.nombre}</p>
+              <p className="text-[10px] text-amber-300">{esAdmin ? 'Administrador' : 'Usuario'}</p>
+            </div>
+            <button onClick={cerrarSesion} title="Cerrar sesión" className="p-1.5 rounded-lg text-amber-200 hover:bg-amber-800 hover:text-white">
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
           <div className="flex items-center justify-center gap-1.5 text-amber-300/80 text-xs font-bold mb-1">
             {esAppNativa ? (
               <span className="flex items-center gap-1"><Smartphone className="w-3.5 h-3.5" /> App Móvil Nativa</span>
@@ -983,6 +1019,8 @@ export default function App() {
         )}
 
         {/* PESTAÑA AJUSTES / CONFIGURACIÓN */}
+        {tab === 'usuarios' && <PanelUsuarios />}
+
         {tab === 'configuracion' && (
           <div className="space-y-4">
             {/* CONTROL DE MODO LECTURA / MODO EDICIÓN */}
@@ -1007,6 +1045,7 @@ export default function App() {
                 </div>
               </div>
 
+              {esAdmin ? (
               <button
                 type="button"
                 onClick={() => setModoEdicionConfig(!modoEdicionConfig)}
@@ -1026,6 +1065,9 @@ export default function App() {
                   </>
                 )}
               </button>
+              ) : (
+                <span className="text-xs font-semibold text-slate-500 shrink-0">Solo el administrador puede editar</span>
+              )}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
