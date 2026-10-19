@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { supabase } from './supabaseClient';
-import { supabaseRegistro, registrarBitacora, traducirErrorAuth, usuarioAEmail, emailAUsuario, normalizarUsuario } from './auth';
+import { registrarBitacora, traducirErrorAuth, usuarioAEmail, emailAUsuario, normalizarUsuario } from './auth';
 import { useAuth } from './AuthGate';
-import { UserPlus, Users, KeyRound, LogOut, ScrollText, Loader2, ShieldCheck, User, RefreshCw } from 'lucide-react';
+import { UserPlus, Users, KeyRound, KeySquare, LogOut, ScrollText, Loader2, ShieldCheck, User, RefreshCw } from 'lucide-react';
 
 const tarjeta = 'bg-white rounded-2xl p-4 md:p-5 shadow-sm border border-slate-200';
 const campo = 'w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20';
@@ -105,21 +105,11 @@ function GestionUsuarios({ perfil }) {
 
     setCreando(true);
     try {
-      const { data, error } = await supabaseRegistro.auth.signUp({
-        email, password: form.clave, options: { data: { nombre } }
+      // Se crea directamente en la base de datos (sin correos ni límites de intentos)
+      const { error } = await supabase.rpc('crear_usuario', {
+        p_email: email, p_clave: form.clave, p_nombre: nombre, p_rol: form.rol
       });
       if (error) throw error;
-      // Si el correo ya existía, Supabase no da error pero no crea identidad
-      if (!data.user || (data.user.identities && data.user.identities.length === 0)) {
-        throw new Error('already registered');
-      }
-      const { error: errPerfil } = await supabase
-        .from('perfiles')
-        .update({ nombre, rol: form.rol, activo: true })
-        .eq('id', data.user.id);
-      if (errPerfil) throw errPerfil;
-
-      await supabaseRegistro.auth.signOut();
       registrarBitacora('Creó usuario', `${nombre} (${usuario}) – ${form.rol === 'admin' ? 'Administrador' : 'Usuario'}`);
       setForm({ nombre: '', usuario: '', clave: '', rol: 'usuario' });
       setMsg({ ok: true, t: `Listo. ${nombre} ya puede entrar con el usuario «${usuario}» y su contraseña.` });
@@ -138,6 +128,16 @@ function GestionUsuarios({ perfil }) {
     if (error) { alert('No se pudo actualizar el usuario.'); return; }
     registrarBitacora(accion, `${u.nombre} (${emailAUsuario(u.email)})`);
     cargar();
+  };
+
+  const restablecerClave = async (u) => {
+    const nueva = window.prompt(`Nueva contraseña para ${u.nombre} (mínimo 6 caracteres):`);
+    if (nueva === null) return;
+    if (nueva.length < 6) { alert('La contraseña debe tener al menos 6 caracteres.'); return; }
+    const { error } = await supabase.rpc('cambiar_clave_usuario', { p_id: u.id, p_clave: nueva });
+    if (error) { alert(traducirErrorAuth(error)); return; }
+    registrarBitacora('Cambió la contraseña de', `${u.nombre} (${emailAUsuario(u.email)})`);
+    alert(`Contraseña de ${u.nombre} cambiada. Comunícasela en persona.`);
   };
 
   return (
@@ -174,6 +174,7 @@ function GestionUsuarios({ perfil }) {
                 <th className="py-2 pr-3">Usuario</th>
                 <th className="py-2 pr-3">Rol</th>
                 <th className="py-2 pr-3">Estado</th>
+                <th className="py-2 pr-3">Contraseña</th>
               </tr>
             </thead>
             <tbody>
@@ -199,6 +200,14 @@ function GestionUsuarios({ perfil }) {
                         className={`px-2.5 py-1 rounded-full text-[11px] font-bold disabled:cursor-not-allowed ${u.activo ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-700'}`}>
                         {u.activo ? 'Activo' : 'Desactivado'}
                       </button>
+                    </td>
+                    <td className="py-2 pr-3">
+                      {!soyYo && (
+                        <button onClick={() => restablecerClave(u)}
+                          className="px-2.5 py-1 rounded-md border border-slate-200 text-[11px] font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-1 whitespace-nowrap">
+                          <KeySquare className="w-3 h-3" /> Cambiar
+                        </button>
+                      )}
                     </td>
                   </tr>
                 );
