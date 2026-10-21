@@ -2,7 +2,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { supabase } from './supabaseClient';
 import { registrarBitacora, traducirErrorAuth, usuarioAEmail, emailAUsuario, normalizarUsuario } from './auth';
 import { useAuth } from './AuthGate';
-import { UserPlus, Users, KeyRound, KeySquare, LogOut, ScrollText, Loader2, ShieldCheck, User, RefreshCw } from 'lucide-react';
+import { TEMAS, temaGuardado, aplicarTema } from './tema';
+import { Palette, Check, UserPlus, Users, KeyRound, KeySquare, LogOut, ScrollText, Loader2, ShieldCheck, User, RefreshCw } from 'lucide-react';
 
 const tarjeta = 'bg-white rounded-2xl p-4 md:p-5 shadow-sm border border-slate-200';
 const campo = 'w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20';
@@ -17,6 +18,7 @@ export default function PanelUsuarios() {
   return (
     <div className="space-y-4">
       <MiCuenta perfil={perfil} cerrarSesion={cerrarSesion} />
+      <Apariencia />
       {esAdmin && <GestionUsuarios perfil={perfil} />}
       {esAdmin && <Bitacora />}
     </div>
@@ -73,6 +75,35 @@ function MiCuenta({ perfil, cerrarSesion }) {
           </button>
         </form>
       </div>
+    </div>
+  );
+}
+
+function Apariencia() {
+  const [actual, setActual] = useState(temaGuardado());
+  const elegir = (id) => { aplicarTema(id); setActual(id); };
+
+  return (
+    <div className={tarjeta}>
+      <h2 className={titulo}><Palette className="w-4 h-4" /> Apariencia</h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {TEMAS.map((t) => (
+          <button key={t.id} type="button" onClick={() => elegir(t.id)}
+            className={`text-left p-3 rounded-xl border-2 transition flex items-center gap-3 ${actual === t.id ? 'border-amber-600 bg-amber-50' : 'border-slate-200 hover:border-slate-300'}`}>
+            <div className="flex -space-x-2 shrink-0">
+              {t.muestras.map((c) => (
+                <span key={c} className="w-8 h-8 rounded-full border-2 border-white shadow-sm" style={{ backgroundColor: c }} />
+              ))}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-sm text-slate-800">{t.nombre}</p>
+              <p className="text-xs text-slate-500">{t.descripcion}</p>
+            </div>
+            {actual === t.id && <Check className="w-5 h-5 text-amber-600 shrink-0" />}
+          </button>
+        ))}
+      </div>
+      <p className="text-[11px] text-slate-400 mt-2">Se guarda en este dispositivo.</p>
     </div>
   );
 }

@@ -1,5 +1,57 @@
 @tailwind base;
 @tailwind components;
+
+/* =====================================================================
+   TEMAS DE COLOR
+   "amber" es el color de acento de toda la app (botones, selección).
+   Cada tema redefine sus tonos. Formato: R G B
+   ===================================================================== */
+
+/* Tema 1: Gris + blanco roto + carbón + azul petróleo */
+:root,
+:root[data-tema="petroleo"] {
+  --amber-50: 238 245 246;
+  --amber-100: 213 231 234;
+  --amber-200: 170 207 213;
+  --amber-300: 120 176 186;
+  --amber-400: 75 143 155;
+  --amber-500: 47 118 130;
+  --amber-600: 31 95 107;    /* azul petróleo: botones */
+  --amber-700: 25 77 87;
+  --amber-800: 58 63 68;     /* carbón: títulos */
+  --amber-900: 43 47 51;
+  --amber-950: 31 34 37;
+  --fondo-app: #f4f4f1;      /* blanco roto */
+  --menu-1: #33383d;         /* carbón (degradado del menú) */
+  --menu-2: #212427;
+}
+
+/* Tema 2: Gris + marfil + carbón + dorado mate */
+:root[data-tema="dorado"] {
+  --amber-50: 250 247 240;
+  --amber-100: 242 235 219;
+  --amber-200: 228 214 182;
+  --amber-300: 209 187 137;
+  --amber-400: 189 160 101;
+  --amber-500: 168 137 79;
+  --amber-600: 149 120 68;   /* dorado mate: botones */
+  --amber-700: 122 98 56;
+  --amber-800: 61 58 54;     /* carbón cálido: títulos */
+  --amber-900: 45 43 41;
+  --amber-950: 32 31 29;
+  --fondo-app: #f7f3ea;      /* marfil */
+  --menu-1: #36332f;
+  --menu-2: #242220;
+}
+
+@layer components {
+  .fondo-app { background-color: var(--fondo-app); }
+  .fondo-menu {
+    background-color: var(--menu-2);
+    background-image: linear-gradient(165deg, var(--menu-1) 0%, var(--menu-2) 100%);
+  }
+}
+
 @tailwind utilities;
 body {
   -webkit-user-select: none; /* Desactiva la selección de texto al tocar */

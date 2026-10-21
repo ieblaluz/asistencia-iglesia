@@ -618,91 +618,91 @@ export default function App() {
   });
 
   return (
-    <div className="flex flex-col md:flex-row min-h-screen bg-slate-100 text-slate-800 font-sans w-full overflow-x-clip">
+    <div className="flex flex-col md:flex-row min-h-screen fondo-app text-slate-800 font-sans w-full overflow-x-clip">
       {/* BARRA LATERAL / CABECERA RESPONSIVA */}
-      <aside ref={asideRef} className="bg-amber-900 text-white sticky top-0 z-40 md:w-64 md:h-screen md:overflow-y-auto md:shrink-0 flex flex-col justify-between p-3 md:p-4 shadow-lg">
-        <div className="space-y-3 md:space-y-6">
+      <aside ref={asideRef} className="fondo-menu text-white border-b md:border-b-0 md:border-r border-black/20 sticky top-0 z-40 md:w-64 md:h-screen md:overflow-y-auto md:shrink-0 flex flex-col justify-between p-3 md:p-4 shadow-sm md:shadow-none">
+        <div className="md:space-y-6">
           {/* Logo y Nombre de la Iglesia */}
-          <div className="flex items-center gap-3 p-2 bg-amber-950/40 rounded-xl">
+          <div className="flex items-center gap-3 p-2 md:bg-white/10 md:border md:border-white/10 rounded-xl">
             {configIglesia.logo_url ? (
-              <img src={configIglesia.logo_url} alt="Logo" className="w-9 h-9 md:w-10 md:h-10 rounded-lg object-cover bg-white p-0.5 shrink-0" />
+              <img src={configIglesia.logo_url} alt="Logo" className="w-9 h-9 md:w-10 md:h-10 rounded-lg object-cover bg-white p-0.5 border border-slate-200 shrink-0" />
             ) : (
               <div className="bg-amber-100 text-amber-900 w-9 h-9 md:w-10 md:h-10 rounded-lg flex items-center justify-center font-black text-lg md:text-xl shrink-0">✝</div>
             )}
             <div className="min-w-0 flex-1">
-              <h1 className="font-bold text-xs md:text-sm leading-tight truncate">{configIglesia.nombre_iglesia}</h1>
-              <p className="text-amber-200 text-[10px] md:text-[11px] font-medium truncate">{configIglesia.direccion}</p>
+              <h1 className="font-bold text-xs md:text-sm leading-tight truncate text-white">{configIglesia.nombre_iglesia}</h1>
+              <p className="text-slate-400 text-[10px] md:text-[11px] font-medium truncate">{configIglesia.direccion}</p>
             </div>
           </div>
 
           {/* Navegación Pestañas */}
-          <nav className="flex md:flex-col gap-1.5 bg-amber-950/30 md:bg-transparent p-1 md:p-0 rounded-xl">
+          <nav className="fixed md:static bottom-0 inset-x-0 z-40 flex md:flex-col gap-1 md:gap-1.5 fondo-menu md:bg-none md:bg-transparent border-t border-white/10 md:border-0 px-2 md:p-0 pt-1.5 pb-[calc(0.375rem+env(safe-area-inset-bottom,0px))] md:pb-0 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] md:shadow-none">
             <button
               onClick={() => setTab('registro')}
-              className={`flex-1 md:flex-none flex items-center justify-center md:justify-start gap-2 px-3 md:px-4 py-2.5 md:py-3 rounded-xl font-bold text-xs uppercase transition ${
-                tab === 'registro' ? 'bg-amber-600 text-white shadow-md' : 'text-amber-200 hover:bg-amber-800/60 hover:text-white'
+              className={`flex-1 md:flex-none flex flex-col md:flex-row items-center justify-center md:justify-start gap-0.5 md:gap-2 px-1 md:px-4 py-1.5 md:py-3 rounded-lg md:rounded-xl font-bold text-[10px] md:text-xs uppercase tracking-wide transition ${
+                tab === 'registro' ? 'bg-amber-600 text-white shadow-md' : 'text-slate-300 hover:bg-white/10 hover:text-white'
               }`}
             >
-              <ClipboardList className="w-4 h-4 shrink-0" />
+              <ClipboardList className="w-5 h-5 md:w-4 md:h-4 shrink-0" />
               <span>REGISTRO</span>
             </button>
             <button
               onClick={() => setTab('reportes')}
-              className={`flex-1 md:flex-none flex items-center justify-center md:justify-start gap-2 px-3 md:px-4 py-2.5 md:py-3 rounded-xl font-bold text-xs uppercase transition ${
-                tab === 'reportes' ? 'bg-amber-600 text-white shadow-md' : 'text-amber-200 hover:bg-amber-800/60 hover:text-white'
+              className={`flex-1 md:flex-none flex flex-col md:flex-row items-center justify-center md:justify-start gap-0.5 md:gap-2 px-1 md:px-4 py-1.5 md:py-3 rounded-lg md:rounded-xl font-bold text-[10px] md:text-xs uppercase tracking-wide transition ${
+                tab === 'reportes' ? 'bg-amber-600 text-white shadow-md' : 'text-slate-300 hover:bg-white/10 hover:text-white'
               }`}
             >
-              <BarChart3 className="w-4 h-4 shrink-0" />
+              <BarChart3 className="w-5 h-5 md:w-4 md:h-4 shrink-0" />
               <span>REPORTES</span>
             </button>
             <button
               onClick={() => setTab('configuracion')}
-              className={`flex-1 md:flex-none flex items-center justify-center md:justify-start gap-2 px-3 md:px-4 py-2.5 md:py-3 rounded-xl font-bold text-xs uppercase transition ${
-                tab === 'configuracion' ? 'bg-amber-600 text-white shadow-md' : 'text-amber-200 hover:bg-amber-800/60 hover:text-white'
+              className={`flex-1 md:flex-none flex flex-col md:flex-row items-center justify-center md:justify-start gap-0.5 md:gap-2 px-1 md:px-4 py-1.5 md:py-3 rounded-lg md:rounded-xl font-bold text-[10px] md:text-xs uppercase tracking-wide transition ${
+                tab === 'configuracion' ? 'bg-amber-600 text-white shadow-md' : 'text-slate-300 hover:bg-white/10 hover:text-white'
               }`}
             >
-              <Settings className="w-4 h-4 shrink-0" />
+              <Settings className="w-5 h-5 md:w-4 md:h-4 shrink-0" />
               <span>AJUSTES</span>
             </button>
             <button
               onClick={() => setTab('usuarios')}
-              className={`flex-1 md:flex-none flex items-center justify-center md:justify-start gap-2 px-3 md:px-4 py-2.5 md:py-3 rounded-xl font-bold text-xs uppercase transition ${
-                tab === 'usuarios' ? 'bg-amber-600 text-white shadow-md' : 'text-amber-200 hover:bg-amber-800/60 hover:text-white'
+              className={`flex-1 md:flex-none flex flex-col md:flex-row items-center justify-center md:justify-start gap-0.5 md:gap-2 px-1 md:px-4 py-1.5 md:py-3 rounded-lg md:rounded-xl font-bold text-[10px] md:text-xs uppercase tracking-wide transition ${
+                tab === 'usuarios' ? 'bg-amber-600 text-white shadow-md' : 'text-slate-300 hover:bg-white/10 hover:text-white'
               }`}
             >
-              {esAdmin ? <Users className="w-4 h-4 shrink-0" /> : <User className="w-4 h-4 shrink-0" />}
+              {esAdmin ? <Users className="w-5 h-5 md:w-4 md:h-4 shrink-0" /> : <User className="w-5 h-5 md:w-4 md:h-4 shrink-0" />}
               <span>{esAdmin ? 'USUARIOS' : 'MI CUENTA'}</span>
             </button>
           </nav>
         </div>
 
         {/* Footer Sidebar & Indicador de Modo Nativo */}
-        <div className="hidden md:block text-center pt-4 border-t border-amber-800/60">
-          <div className="flex items-center gap-2 mb-3 p-2 bg-amber-950/40 rounded-xl text-left">
-            <div className="w-8 h-8 rounded-full bg-amber-600 flex items-center justify-center font-bold text-sm shrink-0">
+        <div className="hidden md:block text-center pt-4 border-t border-white/15">
+          <div className="flex items-center gap-2 mb-3 p-2 bg-white/10 border border-white/10 rounded-xl text-left">
+            <div className="w-8 h-8 rounded-full bg-amber-600 text-white flex items-center justify-center font-bold text-sm shrink-0">
               {(perfil?.nombre || '?').charAt(0).toUpperCase()}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-bold truncate">{perfil?.nombre}</p>
-              <p className="text-[10px] text-amber-300">{esAdmin ? 'Administrador' : 'Usuario'}</p>
+              <p className="text-xs font-bold truncate text-white">{perfil?.nombre}</p>
+              <p className="text-[10px] text-slate-400">{esAdmin ? 'Administrador' : 'Usuario'}</p>
             </div>
-            <button onClick={cerrarSesion} title="Cerrar sesión" className="p-1.5 rounded-lg text-amber-200 hover:bg-amber-800 hover:text-white">
+            <button onClick={cerrarSesion} title="Cerrar sesión" className="p-1.5 rounded-lg text-slate-400 hover:bg-white/15 hover:text-white">
               <LogOut className="w-4 h-4" />
             </button>
           </div>
-          <div className="flex items-center justify-center gap-1.5 text-amber-300/80 text-xs font-bold mb-1">
+          <div className="flex items-center justify-center gap-1.5 text-slate-400 text-xs font-bold mb-1">
             {esAppNativa ? (
               <span className="flex items-center gap-1"><Smartphone className="w-3.5 h-3.5" /> App Móvil Nativa</span>
             ) : (
               <span className="flex items-center gap-1"><Monitor className="w-3.5 h-3.5" /> Modo Web Escritorio</span>
             )}
           </div>
-          <p className="text-amber-400/60 text-[10px]">v1.2.0 · Gestión de Asistencia</p>
+          <p className="text-slate-400 text-[10px]">v1.2.0 · Gestión de Asistencia</p>
         </div>
       </aside>
 
       {/* ÁREA DE CONTENIDO PRINCIPAL */}
-      <main className="flex-1 p-3 md:p-6 max-w-7xl mx-auto w-full min-w-0">
+      <main className="flex-1 p-3 md:p-6 pb-24 md:pb-6 max-w-7xl mx-auto w-full min-w-0">
 
         {/* Indicador visual de estado offline */}
         {!isOnline && (

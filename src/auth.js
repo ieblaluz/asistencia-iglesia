@@ -38,11 +38,15 @@ export function normalizarUsuario(texto) {
 export function usuarioAEmail(texto) {
   const t = (texto || '').trim().toLowerCase();
   if (t.includes('@')) return t;
-  return `${CORREO_BASE}+${normalizarUsuario(t)}@${DOMINIO}`;
+  const usuario = normalizarUsuario(t);
+  // La cuenta principal entra simplemente con "ieblaluz"
+  if (usuario === CORREO_BASE) return `${CORREO_BASE}@${DOMINIO}`;
+  return `${CORREO_BASE}+${usuario}@${DOMINIO}`;
 }
 
 export function emailAUsuario(email) {
   if (!email) return '';
+  if (email === `${CORREO_BASE}@${DOMINIO}`) return CORREO_BASE;
   const prefijo = `${CORREO_BASE}+`;
   if (email.startsWith(prefijo) && email.endsWith('@' + DOMINIO)) {
     return email.slice(prefijo.length, email.length - DOMINIO.length - 1);
