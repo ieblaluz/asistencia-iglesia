@@ -4,6 +4,7 @@ import { guardarLocalmente, sincronizarConSupabase, obtenerRegistrosPendientes }
 import { useAuth } from './AuthGate';
 import { registrarBitacora } from './auth';
 import PanelUsuarios from './PanelUsuarios';
+import CalendarioRegistros from './CalendarioRegistros';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import { ReporteMensualPDF, ReporteAnualPDF, ReportePromediosPDF } from './ReportePDF';
 import { Capacitor } from '@capacitor/core';
@@ -125,7 +126,7 @@ export default function App() {
   const [modoEdicionConfig, setModoEdicionConfig] = useState(false);
 
   // --- ESTADOS DE REGISTRO ---
-  const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
+  const [fecha, setFecha] = useState(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; });
   const [turno, setTurno] = useState('Mañana');
   const [cantidades, setCantidades] = useState({});
   const [cargando, setCargando] = useState(false);
@@ -134,7 +135,7 @@ export default function App() {
 
   // --- ESTADOS MODAL EDICIÓN ---
   const [mostrarModalEditar, setMostrarModalEditar] = useState(false);
-  const [editFecha, setEditFecha] = useState(new Date().toISOString().split('T')[0]);
+  const [editFecha, setEditFecha] = useState(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; });
   const [editTurno, setEditTurno] = useState('Mañana');
   const [editCantidades, setEditCantidades] = useState({});
   const [cargandoModal, setCargandoModal] = useState(false);
@@ -204,10 +205,10 @@ export default function App() {
     }
   }, []);
 
-  const handleFechaChange = (nuevaFecha) => {
+  const handleFechaChange = (nuevaFecha, turnoSugerido) => {
     setFecha(nuevaFecha);
     const dateObj = new Date(nuevaFecha + 'T00:00:00');
-    const nuevoTurno = dateObj.getDay() === 3 ? 'Tarde' : 'Mañana';
+    const nuevoTurno = dateObj.getDay() === 3 ? 'Tarde' : (turnoSugerido || 'Mañana');
     setTurno(nuevoTurno);
     setCantidades(obtenerValoresVacios());
     comprobarRegistroExistente(nuevaFecha, nuevoTurno);
@@ -879,6 +880,15 @@ export default function App() {
                 </div>
               </div>
             </div>
+
+            <CalendarioRegistros
+              fechaSeleccionada={fecha}
+              onSeleccionar={(f, turnoPendiente) => {
+                handleFechaChange(f, turnoPendiente);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              refrescar={mensaje}
+            />
           </div>
         )}
 
