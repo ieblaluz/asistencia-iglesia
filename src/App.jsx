@@ -6,6 +6,7 @@ import { registrarBitacora } from './auth';
 import PanelUsuarios from './PanelUsuarios';
 import CalendarioRegistros from './CalendarioRegistros';
 import MotivosSinCulto from './MotivosSinCulto';
+import TipoCulto, { cargarInfoCulto, guardarInfoCulto, borrarInfoCulto } from './TipoCulto';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import { ReporteMensualPDF, ReporteAnualPDF, ReportePromediosPDF } from './ReportePDF';
 import { Capacitor } from '@capacitor/core';
@@ -129,6 +130,9 @@ export default function App() {
   // --- ESTADOS DE REGISTRO ---
   const [fecha, setFecha] = useState(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; });
   const [turno, setTurno] = useState('Mañana');
+  const [infoCulto, setInfoCulto] = useState({ tipo: 'Normal', comentario: '' });
+  const [editInfoCulto, setEditInfoCulto] = useState({ tipo: 'Normal', comentario: '' });
+  const textoEspecial = (info) => (info.tipo === 'Especial' ? ` · Especial: ${info.comentario}` : '');
   const [cantidades, setCantidades] = useState({});
   const [cargando, setCargando] = useState(false);
   const [mensaje, setMensaje] = useState({ tipo: '', texto: '' });
@@ -200,6 +204,7 @@ export default function App() {
 
       if (error) throw error;
       setExisteRegistro(data && data.length > 0);
+      setInfoCulto(await cargarInfoCulto(fechaSel, turnoSel));
     } catch (err) {
       console.error('Error al verificar registro:', err);
       setExisteRegistro(false);
@@ -249,6 +254,10 @@ export default function App() {
   const guardarAsistencia = async () => {
     // Evita guardar dos veces si se pulsa el botón repetidamente
     if (existeRegistro || guardandoRef.current) return;
+    if (infoCulto.tipo === 'Especial' && !infoCulto.comentario.trim()) {
+      alert('Escribe por qué es un culto especial.');
+      return;
+    }
     guardandoRef.current = true;
     setCargando(true);
     setMensaje({ tipo: '', texto: '' });
@@ -288,8 +297,9 @@ export default function App() {
       const { error: insError } = await supabase.from('asistencia').insert(filas);
       if (insError) throw insError;
 
+      await guardarInfoCulto(fecha, turno, infoCulto.tipo, infoCulto.comentario);
       setMensaje({ tipo: 'exito', texto: '¡Asistencia guardada con éxito en la nube!' });
-      registrarBitacora('Registró asistencia', `${formatearFechaLatina(fecha)} (${turno}) – Total: ${Object.values(cantidades).reduce((a, b) => a + (parseInt(b) || 0), 0)}`);
+      registrarBitacora('Registró asistencia', `${formatearFechaLatina(fecha)} (${turno}) – Total: ${Object.values(cantidades).reduce((a, b) => a + (parseInt(b) || 0), 0)}${textoEspecial(infoCulto)}`);
       setCantidades(obtenerValoresVacios());
       setExisteRegistro(true);
     } catch (err) {
@@ -334,6 +344,7 @@ export default function App() {
       }
       setEditExisteRegistro(!!(data && data.length > 0));
       setEditCantidades(iniciales);
+      setEditInfoCulto(await cargarInfoCulto(f, t));
     } catch (err) {
       console.error('Error al cargar datos en modal:', err);
     } finally {
@@ -342,6 +353,10 @@ export default function App() {
   };
 
   const guardarEdicionModal = async () => {
+    if (editInfoCulto.tipo === 'Especial' && !editInfoCulto.comentario.trim()) {
+      alert('Escribe por qué es un culto especial.');
+      return;
+    }
     if (editTurno === 'Mañana' && new Date(editFecha + 'T00:00:00').getDay() === 3) {
       alert('Los miércoles solo hay culto de tarde.');
       return;
@@ -373,8 +388,9 @@ export default function App() {
       if (insError) throw insError;
 
       setMostrarModalEditar(false);
+      await guardarInfoCulto(editFecha, editTurno, editInfoCulto.tipo, editInfoCulto.comentario);
       setMensaje({ tipo: 'exito', texto: '¡Registro modificado con éxito!' });
-      registrarBitacora('Modificó asistencia', `${formatearFechaLatina(editFecha)} (${editTurno}) – Total: ${Object.values(editCantidades).reduce((a, b) => a + (parseInt(b) || 0), 0)}`);
+      registrarBitacora('Modificó asistencia', `${formatearFechaLatina(editFecha)} (${editTurno}) – Total: ${Object.values(editCantidades).reduce((a, b) => a + (parseInt(b) || 0), 0)}${textoEspecial(editInfoCulto)}`);
       comprobarRegistroExistente(fecha, turno);
     } catch (err) {
       console.error('Error al modificar:', err);
@@ -400,6 +416,7 @@ export default function App() {
       if (error) throw error;
 
       setMostrarModalEditar(false);
+      await borrarInfoCulto(editFecha, editTurno);
       setMensaje({ tipo: 'exito', texto: `Registro del ${formatearFechaLatina(editFecha)} (${editTurno}) eliminado.` });
       registrarBitacora('Eliminó asistencia', `${formatearFechaLatina(editFecha)} (${editTurno})`);
       comprobarRegistroExistente(fecha, turno);
@@ -816,6 +833,13 @@ export default function App() {
                       ))}
                     </div>
                   </div>
+
+                  <TipoCulto
+                    tipo={infoCulto.tipo}
+                    comentario={infoCulto.comentario}
+                    disabled={existeRegistro}
+                    onChange={(tipo, comentario) => setInfoCulto({ tipo, comentario })}
+                  />
                 </div>
               </div>
 
@@ -1354,6 +1378,16 @@ export default function App() {
                   ))}
                 </div>
               </div>
+            </div>
+
+            <div className="mt-3">
+              <TipoCulto
+                compacto
+                tipo={editInfoCulto.tipo}
+                comentario={editInfoCulto.comentario}
+                disabled={cargandoModal}
+                onChange={(tipo, comentario) => setEditInfoCulto({ tipo, comentario })}
+              />
             </div>
 
             {cargandoModal ? (

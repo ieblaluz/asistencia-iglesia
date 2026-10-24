@@ -31,16 +31,21 @@ const ESTILOS = {
 };
 
 const describir = (c) => {
+  const extra = c.especial ? `\n★ Especial: ${c.especial}` : '';
+  return describirBase(c) + extra;
+};
+
+const describirBase = (c) => {
   if (c.estado === 'completo') return `Registrado: ${[...c.hechos].join(' y ')}${c.motivo ? ` · Sin culto: ${[...c.anulados].join(' y ')} (${c.motivo})` : ''}`;
   if (c.estado === 'parcial') return `Falta: ${c.pendientes.join(' y ')}`;
   if (c.estado === 'falta') return `Sin registrar: ${c.esperados.join(' y ')}`;
   if (c.estado === 'futuro') return `Culto: ${c.esperados.join(' y ')}`;
-  if (c.estado === 'extra') return `Culto especial: ${[...c.hechos].join(' y ')}`;
+  if (c.estado === 'extra') return `Culto en otro día: ${[...c.hechos].join(' y ')}`;
   if (c.estado === 'sinculto') return `No hubo culto${c.motivo ? ': ' + c.motivo : ''}`;
   return '';
 };
 
-function calcularMes(anio, mes, registros, sinCulto, motivos, hoyISO) {
+function calcularMes(anio, mes, registros, sinCulto, motivos, especiales, hoyISO) {
   const totalDias = new Date(anio, mes + 1, 0).getDate();
   const huecoInicial = (new Date(anio, mes, 1).getDay() + 6) % 7; // semana empieza en lunes
   const celdas = Array(huecoInicial).fill(null);
@@ -70,15 +75,16 @@ function calcularMes(anio, mes, registros, sinCulto, motivos, hoyISO) {
       else if (hechos.size > 0) completos++;
     }
     const motivo = [...anulados].map((t) => motivos[`${iso}|${t}`]).filter(Boolean).join(', ');
-    celdas.push({ d, iso, estado, hechos, anulados, pendientes, esperados, pasado, motivo });
+    const especial = especiales[iso] ? especiales[iso].join(' · ') : '';
+    celdas.push({ d, iso, estado, hechos, anulados, pendientes, esperados, pasado, motivo, especial });
   }
   return { celdas, faltan, completos };
 }
 
-function Mes({ anio, mes, registros, sinCulto, motivos, hoyISO, fechaSeleccionada, onSeleccionar, cargando, tituloVisible }) {
+function Mes({ anio, mes, registros, sinCulto, motivos, especiales, hoyISO, fechaSeleccionada, onSeleccionar, cargando, tituloVisible }) {
   const { celdas, faltan, completos } = useMemo(
-    () => calcularMes(anio, mes, registros, sinCulto, motivos, hoyISO),
-    [anio, mes, registros, sinCulto, motivos, hoyISO]
+    () => calcularMes(anio, mes, registros, sinCulto, motivos, especiales, hoyISO),
+    [anio, mes, registros, sinCulto, motivos, especiales, hoyISO]
   );
 
   return (
@@ -111,6 +117,7 @@ function Mes({ anio, mes, registros, sinCulto, motivos, hoyISO, fechaSeleccionad
             >
               {c.d}
               {c.iso === hoyISO && <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-amber-600" />}
+              {c.especial && <span className="absolute top-0.5 left-1 text-[10px] leading-none text-amber-500">★</span>}
               {c.esperados.length === 2 && c.estado !== 'futuro' && (
                 <span className="absolute bottom-1 left-1/2 -translate-x-1/2 flex gap-0.5">
                   {c.esperados.map((t) => (
@@ -141,6 +148,7 @@ export default function CalendarioRegistros({ fechaSeleccionada, onSeleccionar, 
   const [registros, setRegistros] = useState({});
   const [sinCulto, setSinCulto] = useState({});
   const [motivos, setMotivos] = useState({});
+  const [especiales, setEspeciales] = useState({});
   const [listaMotivos, setListaMotivos] = useState([...MOTIVOS_BASE, 'Otro']);
   const [motivo, setMotivo] = useState(MOTIVOS_BASE[0]);
   const [motivoOtro, setMotivoOtro] = useState('');
@@ -175,10 +183,19 @@ export default function CalendarioRegistros({ fechaSeleccionada, onSeleccionar, 
       });
       return mapa;
     };
-    const [asis, sc] = await Promise.all([
+    const [asis, sc, ci] = await Promise.all([
       supabase.from('asistencia').select('fecha, turno').gte('fecha', desde).lte('fecha', hasta),
       supabase.from('dias_sin_culto').select('fecha, turno, motivo').gte('fecha', desde).lte('fecha', hasta),
+      supabase.from('cultos_info').select('fecha, turno, comentario').eq('tipo', 'Especial').gte('fecha', desde).lte('fecha', hasta),
     ]);
+    if (!ci.error) {
+      const e = {};
+      (ci.data || []).forEach((f) => {
+        if (!e[f.fecha]) e[f.fecha] = [];
+        e[f.fecha].push(`${f.turno}: ${f.comentario || ''}`);
+      });
+      setEspeciales(e);
+    }
     if (!asis.error) setRegistros(agrupar(asis.data));
     if (!sc.error) {
       setSinCulto(agrupar(sc.data));
@@ -242,7 +259,7 @@ export default function CalendarioRegistros({ fechaSeleccionada, onSeleccionar, 
 
   const hoyISO = aISO(new Date());
   const cambiarMes = (delta) => setMesVisible(new Date(mesVisible.getFullYear(), mesVisible.getMonth() + delta, 1));
-  const comun = { registros, sinCulto, motivos, hoyISO, fechaSeleccionada, onSeleccionar, cargando };
+  const comun = { registros, sinCulto, motivos, especiales, hoyISO, fechaSeleccionada, onSeleccionar, cargando };
 
   return (
     <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
@@ -322,7 +339,8 @@ export default function CalendarioRegistros({ fechaSeleccionada, onSeleccionar, 
         <span className="flex items-center gap-1.5"><span className="w-3.5 h-3.5 rounded bg-emerald-100 border border-emerald-200" /> Completo</span>
         <span className="flex items-center gap-1.5"><span className="w-3.5 h-3.5 rounded bg-orange-100 border border-orange-300" /> Falta un turno</span>
         <span className="flex items-center gap-1.5"><span className="w-3.5 h-3.5 rounded bg-rose-50 border border-dashed border-rose-300" /> Sin registrar</span>
-        <span className="flex items-center gap-1.5"><span className="w-3.5 h-3.5 rounded bg-sky-50 border border-sky-200" /> Culto especial</span>
+        <span className="flex items-center gap-1.5"><span className="w-3.5 h-3.5 rounded bg-sky-50 border border-sky-200" /> Culto en otro día</span>
+        <span className="flex items-center gap-1.5"><span className="text-amber-500 text-sm leading-none">★</span> Culto especial</span>
         <span className="flex items-center gap-1.5"><span className="w-3.5 h-3.5 rounded bg-slate-100 border border-slate-200" /> Sin culto</span>
         <span className="text-[11px] text-slate-400 md:ml-auto">Pulsa un día para seleccionarlo y registrarlo.</span>
       </div>
