@@ -5,6 +5,7 @@ import { useAuth } from './AuthGate';
 import { registrarBitacora } from './auth';
 import PanelUsuarios from './PanelUsuarios';
 import CalendarioRegistros from './CalendarioRegistros';
+import MotivosSinCulto from './MotivosSinCulto';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import { ReporteMensualPDF, ReporteAnualPDF, ReportePromediosPDF } from './ReportePDF';
 import { Capacitor } from '@capacitor/core';
@@ -1285,6 +1286,8 @@ export default function App() {
                 </div>
               </div>
             </div>
+
+            <MotivosSinCulto puedeEditar={esAdmin && modoEdicionConfig} />
           </div>
         )}
       </main>

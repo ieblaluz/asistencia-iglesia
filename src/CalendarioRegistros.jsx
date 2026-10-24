@@ -17,7 +17,8 @@ const turnosEsperados = (diaSemana) => {
   return [];
 };
 
-const MOTIVOS = ['Alerta por lluvias', 'Fuerza mayor', 'Verano', 'Festivo / vacaciones', 'Otro'];
+// Motivos por defecto (si no se puede cargar la lista de Ajustes)
+const MOTIVOS_BASE = ['Alerta por lluvias', 'Fuerza mayor', 'Verano', 'Festivo / vacaciones'];
 
 const ESTILOS = {
   completo: 'bg-emerald-100 text-emerald-800 border-emerald-200',
@@ -140,7 +141,9 @@ export default function CalendarioRegistros({ fechaSeleccionada, onSeleccionar, 
   const [registros, setRegistros] = useState({});
   const [sinCulto, setSinCulto] = useState({});
   const [motivos, setMotivos] = useState({});
-  const [motivo, setMotivo] = useState(MOTIVOS[0]);
+  const [listaMotivos, setListaMotivos] = useState([...MOTIVOS_BASE, 'Otro']);
+  const [motivo, setMotivo] = useState(MOTIVOS_BASE[0]);
+  const [motivoOtro, setMotivoOtro] = useState('');
   const [cargando, setCargando] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [version, setVersion] = useState(0);
@@ -188,6 +191,17 @@ export default function CalendarioRegistros({ fechaSeleccionada, onSeleccionar, 
 
   useEffect(() => { cargar(); }, [cargar, refrescar, version]);
 
+  // Motivos recurrentes definidos en Ajustes
+  useEffect(() => {
+    supabase.from('motivos_sin_culto').select('nombre').order('orden').order('nombre')
+      .then(({ data, error }) => {
+        if (error || !data || data.length === 0) return;
+        const nombres = data.map((m) => m.nombre);
+        setListaMotivos([...nombres, 'Otro']);
+        setMotivo(nombres[0]);
+      });
+  }, []);
+
   // ----- Día seleccionado: marcar o deshacer "no hubo culto" -----
   const infoSeleccion = useMemo(() => {
     if (!fechaSeleccionada) return null;
@@ -205,12 +219,15 @@ export default function CalendarioRegistros({ fechaSeleccionada, onSeleccionar, 
 
   // Marca uno o varios turnos de golpe
   const marcarVarios = async (turnos) => {
+    const textoMotivo = motivo === 'Otro' ? motivoOtro.trim() : motivo;
+    if (!textoMotivo) { alert('Escribe el motivo por el que no hubo culto.'); return; }
     setGuardando(true);
-    const filas = turnos.map((turno) => ({ fecha: fechaSeleccionada, turno, motivo }));
+    const filas = turnos.map((turno) => ({ fecha: fechaSeleccionada, turno, motivo: textoMotivo }));
     const { error } = await supabase.from('dias_sin_culto').upsert(filas);
     setGuardando(false);
     if (error) { alert('No se pudo guardar.'); return; }
-    registrarBitacora('Marcó sin culto', `${fechaSeleccionada} (${turnos.join(' y ')}) – ${motivo}`);
+    registrarBitacora('Marcó sin culto', `${fechaSeleccionada} (${turnos.join(' y ')}) – ${textoMotivo}`);
+    setMotivoOtro('');
     setVersion((v) => v + 1);
   };
 
@@ -264,8 +281,19 @@ export default function CalendarioRegistros({ fechaSeleccionada, onSeleccionar, 
                 <span className="text-slate-500 font-semibold">No hubo culto por:</span>
                 <select value={motivo} onChange={(e) => setMotivo(e.target.value)}
                   className="px-2 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-700 font-semibold outline-none focus:border-amber-500">
-                  {MOTIVOS.map((m) => <option key={m} value={m}>{m}</option>)}
+                  {listaMotivos.map((m) => <option key={m} value={m}>{m === 'Otro' ? 'Otro (escribir motivo)' : m}</option>)}
                 </select>
+                {motivo === 'Otro' && (
+                  <input
+                    type="text"
+                    value={motivoOtro}
+                    onChange={(e) => setMotivoOtro(e.target.value)}
+                    placeholder="Escribe el motivo…"
+                    maxLength={120}
+                    autoFocus
+                    className="input-texto w-full sm:w-56 px-2 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-700 outline-none focus:border-amber-500"
+                  />
+                )}
                 {infoSeleccion.marcables.length > 1 && (
                   <button type="button" disabled={guardando} onClick={() => marcarVarios(infoSeleccion.marcables)}
                     className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 font-bold text-slate-600 flex items-center gap-1.5 disabled:opacity-50">

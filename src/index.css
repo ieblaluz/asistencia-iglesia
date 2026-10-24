@@ -79,3 +79,9 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   height: 100%;
   cursor: pointer;
 }
+
+/* Campos de texto: permitir seleccionar texto (el body lo desactiva) */
+.input-texto {
+  -webkit-user-select: text;
+  user-select: text;
+}
