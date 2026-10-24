@@ -910,7 +910,8 @@ export default function App() {
               fechaSeleccionada={fecha}
               onSeleccionar={(f, turnoPendiente) => {
                 handleFechaChange(f, turnoPendiente);
-                window.scrollTo({ top: 0, behavior: 'smooth' });
+                // En el móvil sube al formulario; en el ordenador ya está a la vista
+                if (window.innerWidth < 768) window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
               refrescar={mensaje}
             />

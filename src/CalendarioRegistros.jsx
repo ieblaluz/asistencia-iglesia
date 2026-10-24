@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from './supabaseClient';
 import { registrarBitacora } from './auth';
-import { CalendarDays, ChevronLeft, ChevronRight, Loader2, Ban, Undo2 } from 'lucide-react';
+import DetalleDia from './DetalleDia';
+import { CalendarDays, ChevronLeft, ChevronRight, Loader2, Ban, Undo2, Eye } from 'lucide-react';
 
 const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 const DIAS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
@@ -81,7 +82,7 @@ function calcularMes(anio, mes, registros, sinCulto, motivos, especiales, hoyISO
   return { celdas, faltan, completos };
 }
 
-function Mes({ anio, mes, registros, sinCulto, motivos, especiales, hoyISO, fechaSeleccionada, onSeleccionar, cargando, tituloVisible }) {
+function Mes({ anio, mes, registros, sinCulto, motivos, especiales, hoyISO, fechaSeleccionada, onSeleccionar, onDetalle, cargando, tituloVisible }) {
   const { celdas, faltan, completos } = useMemo(
     () => calcularMes(anio, mes, registros, sinCulto, motivos, especiales, hoyISO),
     [anio, mes, registros, sinCulto, motivos, especiales, hoyISO]
@@ -111,6 +112,7 @@ function Mes({ anio, mes, registros, sinCulto, motivos, especiales, hoyISO, fech
               type="button"
               title={describir(c)}
               onClick={() => onSeleccionar(c.iso, c.pendientes[0])}
+              onDoubleClick={() => { if (c.hechos.size > 0 || c.anulados.size > 0) onDetalle(c.iso); }}
               className={`relative h-10 md:h-11 rounded-lg border text-sm font-bold transition hover:ring-2 hover:ring-amber-300 ${ESTILOS[c.estado]} ${
                 c.iso === fechaSeleccionada ? 'ring-2 ring-amber-600' : ''
               }`}
@@ -224,7 +226,6 @@ export default function CalendarioRegistros({ fechaSeleccionada, onSeleccionar, 
     if (!fechaSeleccionada) return null;
     const f = new Date(fechaSeleccionada + 'T00:00:00');
     const esperados = turnosEsperados(f.getDay());
-    if (esperados.length === 0) return null;
     const hechos = registros[fechaSeleccionada] || new Set();
     const anulados = sinCulto[fechaSeleccionada] || new Set();
     return {
@@ -259,7 +260,9 @@ export default function CalendarioRegistros({ fechaSeleccionada, onSeleccionar, 
 
   const hoyISO = aISO(new Date());
   const cambiarMes = (delta) => setMesVisible(new Date(mesVisible.getFullYear(), mesVisible.getMonth() + delta, 1));
-  const comun = { registros, sinCulto, motivos, especiales, hoyISO, fechaSeleccionada, onSeleccionar, cargando };
+  const [detalle, setDetalle] = useState(null);
+  const tieneDatos = (iso) => (registros[iso] && registros[iso].size > 0) || (sinCulto[iso] && sinCulto[iso].size > 0);
+  const comun = { registros, sinCulto, motivos, especiales, hoyISO, fechaSeleccionada, onSeleccionar, onDetalle: setDetalle, cargando };
 
   return (
     <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
@@ -289,9 +292,15 @@ export default function CalendarioRegistros({ fechaSeleccionada, onSeleccionar, 
         <Mes anio={mesVisible.getFullYear()} mes={mesVisible.getMonth()} tituloVisible {...comun} />
       </div>
 
-      {infoSeleccion && (infoSeleccion.marcables.length > 0 || infoSeleccion.anulados.length > 0) && (
+      {infoSeleccion && (infoSeleccion.marcables.length > 0 || infoSeleccion.anulados.length > 0 || tieneDatos(fechaSeleccionada)) && (
         <div className="mt-4 p-3 rounded-xl bg-slate-50 border border-slate-200 flex flex-col lg:flex-row lg:items-center gap-2 text-xs">
           <span className="font-semibold text-slate-700 first-letter:uppercase">{infoSeleccion.etiqueta}</span>
+          {tieneDatos(fechaSeleccionada) && (
+            <button type="button" onClick={() => setDetalle(fechaSeleccionada)}
+              className="self-start px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold flex items-center gap-1.5">
+              <Eye className="w-3.5 h-3.5" /> Ver detalle
+            </button>
+          )}
           <div className="flex flex-wrap items-center gap-2 lg:ml-auto">
             {infoSeleccion.marcables.length > 0 && (
               <>
@@ -342,8 +351,9 @@ export default function CalendarioRegistros({ fechaSeleccionada, onSeleccionar, 
         <span className="flex items-center gap-1.5"><span className="w-3.5 h-3.5 rounded bg-sky-50 border border-sky-200" /> Culto en otro día</span>
         <span className="flex items-center gap-1.5"><span className="text-amber-500 text-sm leading-none">★</span> Culto especial</span>
         <span className="flex items-center gap-1.5"><span className="w-3.5 h-3.5 rounded bg-slate-100 border border-slate-200" /> Sin culto</span>
-        <span className="text-[11px] text-slate-400 md:ml-auto">Pulsa un día para seleccionarlo y registrarlo.</span>
+        <span className="text-[11px] text-slate-400 md:ml-auto">Un clic: seleccionar · Doble clic: ver detalle</span>
       </div>
+      {detalle && <DetalleDia fecha={detalle} onCerrar={() => setDetalle(null)} />}
     </div>
   );
 }
