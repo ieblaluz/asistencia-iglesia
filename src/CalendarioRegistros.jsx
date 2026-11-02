@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from './supabaseClient';
 import { registrarBitacora } from './auth';
 import DetalleDia from './DetalleDia';
+import { useAuth } from './AuthGate';
 import { CalendarDays, ChevronLeft, ChevronRight, Loader2, Ban, Undo2, Eye } from 'lucide-react';
 
 const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
@@ -141,6 +142,8 @@ function Mes({ anio, mes, registros, sinCulto, motivos, especiales, hoyISO, fech
 }
 
 export default function CalendarioRegistros({ fechaSeleccionada, onSeleccionar, refrescar }) {
+  const { puede } = useAuth();
+  const puedeSinCulto = puede('sin_culto');
   // mesVisible = el mes de la derecha (el de la fecha elegida).
   // En el ordenador se muestra también el mes anterior a su izquierda.
   const [mesVisible, setMesVisible] = useState(() => {
@@ -302,7 +305,7 @@ export default function CalendarioRegistros({ fechaSeleccionada, onSeleccionar, 
             </button>
           )}
           <div className="flex flex-wrap items-center gap-2 lg:ml-auto">
-            {infoSeleccion.marcables.length > 0 && (
+            {puedeSinCulto && infoSeleccion.marcables.length > 0 && (
               <>
                 <span className="text-slate-500 font-semibold">No hubo culto por:</span>
                 <select value={motivo} onChange={(e) => setMotivo(e.target.value)}
@@ -334,7 +337,7 @@ export default function CalendarioRegistros({ fechaSeleccionada, onSeleccionar, 
                 ))}
               </>
             )}
-            {infoSeleccion.anulados.map((t) => (
+            {puedeSinCulto && infoSeleccion.anulados.map((t) => (
               <button key={t} type="button" disabled={guardando} onClick={() => deshacerSinCulto(t)}
                 className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 font-bold text-slate-600 flex items-center gap-1.5 disabled:opacity-50">
                 <Undo2 className="w-3.5 h-3.5" /> Sí hubo culto ({t.toLowerCase()}{motivos[`${fechaSeleccionada}|${t}`] ? ` · marcado: ${motivos[`${fechaSeleccionada}|${t}`]}` : ''})

@@ -1,13 +1,24 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { supabase } from './supabaseClient';
 import { establecerPerfilActual, emailAUsuario } from './auth';
 import Login from './Login';
-import { Loader2, LogOut, ShieldAlert } from 'lucide-react';
+import ControlInactividad, { CLAVE_AVISO_CIERRE } from './ControlInactividad';
+import { Loader2, LogOut, ShieldAlert, Clock } from 'lucide-react';
 
 const AuthContext = createContext(null);
 export const useAuth = () => useContext(AuthContext);
 
 const CLAVE_CACHE = 'perfil_usuario_cache';
+
+// Permisos disponibles. El administrador siempre los tiene todos.
+export const PERMISOS = [
+  { id: 'registrar',      nombre: 'Registrar asistencia',           descripcion: 'Guardar cultos nuevos' },
+  { id: 'modificar',      nombre: 'Modificar y eliminar registros', descripcion: 'Botón “Consultar / Modificar”' },
+  { id: 'sin_culto',      nombre: 'Marcar días sin culto',          descripcion: 'En el calendario de Registro' },
+  { id: 'ver_reportes',   nombre: 'Ver reportes',                   descripcion: 'Pestaña Reportes' },
+  { id: 'ver_ajustes',    nombre: 'Ver ajustes',                    descripcion: 'Pestaña Ajustes (solo lectura)' },
+  { id: 'editar_ajustes', nombre: 'Editar ajustes',                 descripcion: 'Grupos, datos de la iglesia y motivos' },
+];
 
 export default function AuthGate({ children }) {
   const [session, setSession] = useState(undefined); // undefined = comprobando
@@ -16,7 +27,13 @@ export default function AuthGate({ children }) {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session ?? null));
-    const { data: sub } = supabase.auth.onAuthStateChange((_evento, s) => setSession(s ?? null));
+    const { data: sub } = supabase.auth.onAuthStateChange((evento, s) => {
+      // Al iniciar sesión, el contador de inactividad empieza de cero
+      if (evento === 'SIGNED_IN') {
+        try { localStorage.setItem('ultima_actividad', String(Date.now())); } catch { /* nada */ }
+      }
+      setSession(s ?? null);
+    });
     return () => sub.subscription.unsubscribe();
   }, []);
 
@@ -60,10 +77,31 @@ export default function AuthGate({ children }) {
     return () => { cancelado = true; };
   }, [session]);
 
-  const cerrarSesion = async () => {
+  const cerrarSesion = useCallback(async () => {
     try { localStorage.removeItem(CLAVE_CACHE); } catch { /* nada */ }
     await supabase.auth.signOut();
-  };
+  }, []);
+
+  const esAdmin = perfil?.rol === 'admin';
+  const puede = useCallback(
+    (permiso) => esAdmin || !!(perfil?.permisos && perfil.permisos[permiso]),
+    [esAdmin, perfil]
+  );
+
+  // Aviso tras un cierre automático por inactividad
+  const [avisoCierre, setAvisoCierre] = useState(false);
+  useEffect(() => {
+    if (session === null) {
+      try {
+        if (sessionStorage.getItem(CLAVE_AVISO_CIERRE)) {
+          setAvisoCierre(true);
+          sessionStorage.removeItem(CLAVE_AVISO_CIERRE);
+        }
+      } catch { /* nada */ }
+    } else if (session) {
+      setAvisoCierre(false);
+    }
+  }, [session]);
 
   if (session === undefined || (session && (cargandoPerfil || !perfil))) {
     return (
@@ -73,7 +111,22 @@ export default function AuthGate({ children }) {
     );
   }
 
-  if (!session) return <Login />;
+  if (!session) {
+    return (
+      <>
+        {avisoCierre && (
+          <div className="fixed top-3 inset-x-3 z-50 flex justify-center pointer-events-none">
+            <div className="pointer-events-auto max-w-sm w-full bg-white border border-slate-200 shadow-lg rounded-xl px-4 py-3 flex items-center gap-3 text-sm text-slate-700">
+              <Clock className="w-5 h-5 text-amber-600 shrink-0" />
+              <span className="flex-1">Tu sesión se cerró por inactividad. Vuelve a iniciar sesión.</span>
+              <button onClick={() => setAvisoCierre(false)} className="text-slate-400 hover:text-slate-700 font-bold">✕</button>
+            </div>
+          </div>
+        )}
+        <Login />
+      </>
+    );
+  }
 
   if (!perfil.activo) {
     return (
@@ -96,7 +149,8 @@ export default function AuthGate({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ perfil, esAdmin: perfil.rol === 'admin', cerrarSesion }}>
+    <AuthContext.Provider value={{ perfil, esAdmin, puede, cerrarSesion }}>
+      <ControlInactividad cerrarSesion={cerrarSesion} />
       {children}
     </AuthContext.Provider>
   );

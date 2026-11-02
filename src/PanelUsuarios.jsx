@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { supabase } from './supabaseClient';
 import { registrarBitacora, traducirErrorAuth, usuarioAEmail, emailAUsuario, normalizarUsuario } from './auth';
-import { useAuth } from './AuthGate';
+import { useAuth, PERMISOS } from './AuthGate';
 import { TEMAS, temaGuardado, aplicarTema } from './tema';
-import { Palette, Check, UserPlus, Users, KeyRound, KeySquare, LogOut, ScrollText, Loader2, ShieldCheck, User, RefreshCw } from 'lucide-react';
+import { Palette, Check, Lock, X, Timer, UserPlus, Users, KeyRound, KeySquare, LogOut, ScrollText, Loader2, ShieldCheck, User, RefreshCw } from 'lucide-react';
 
 const tarjeta = 'bg-white rounded-2xl p-4 md:p-5 shadow-sm border border-slate-200';
 const campo = 'w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20';
@@ -20,6 +20,7 @@ export default function PanelUsuarios() {
       <MiCuenta perfil={perfil} cerrarSesion={cerrarSesion} />
       <Apariencia />
       {esAdmin && <GestionUsuarios perfil={perfil} />}
+      {esAdmin && <SeguridadSesion />}
       {esAdmin && <Bitacora />}
     </div>
   );
@@ -108,8 +109,132 @@ function Apariencia() {
   );
 }
 
+function ModalPermisos({ usuario, onCerrar, onGuardado }) {
+  const [permisos, setPermisos] = useState(() => {
+    const base = {};
+    PERMISOS.forEach((p) => { base[p.id] = !!(usuario.permisos && usuario.permisos[p.id]); });
+    return base;
+  });
+  const [guardando, setGuardando] = useState(false);
+
+  const cambiar = (id) => {
+    const nuevo = { ...permisos, [id]: !permisos[id] };
+    // Coherencia: editar ajustes requiere verlos
+    if (id === 'editar_ajustes' && nuevo.editar_ajustes) nuevo.ver_ajustes = true;
+    if (id === 'ver_ajustes' && !nuevo.ver_ajustes) nuevo.editar_ajustes = false;
+    setPermisos(nuevo);
+  };
+
+  const guardar = async () => {
+    setGuardando(true);
+    const { error } = await supabase.from('perfiles').update({ permisos }).eq('id', usuario.id);
+    setGuardando(false);
+    if (error) { alert('No se pudieron guardar los permisos.'); return; }
+    const activos = PERMISOS.filter((p) => permisos[p.id]).map((p) => p.nombre).join(', ') || 'ninguno';
+    registrarBitacora('Cambió permisos de', `${usuario.nombre} (${emailAUsuario(usuario.email)}): ${activos}`);
+    onGuardado();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3" onClick={onCerrar}>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+        <div className="fondo-menu rounded-t-2xl px-5 py-4 flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-amber-300">Permisos</p>
+            <h3 className="text-lg font-bold text-white leading-tight">{usuario.nombre}</h3>
+            <p className="text-xs text-slate-300">Usuario: {emailAUsuario(usuario.email)}</p>
+          </div>
+          <button onClick={onCerrar} className="p-1.5 rounded-lg text-white/60 hover:bg-white/10 hover:text-white"><X className="w-5 h-5" /></button>
+        </div>
+        <div className="p-4 space-y-1">
+          {PERMISOS.map((p) => (
+            <button key={p.id} type="button" onClick={() => cambiar(p.id)}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-50 text-left">
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-sm text-slate-800">{p.nombre}</p>
+                <p className="text-xs text-slate-500">{p.descripcion}</p>
+              </div>
+              <span className={`relative w-11 h-6 rounded-full transition shrink-0 ${permisos[p.id] ? 'bg-amber-600' : 'bg-slate-300'}`}>
+                <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${permisos[p.id] ? 'left-[22px]' : 'left-0.5'}`} />
+              </span>
+            </button>
+          ))}
+        </div>
+        <div className="px-4 pb-4 flex justify-end gap-2">
+          <button onClick={onCerrar} className="px-4 py-2 rounded-lg text-slate-600 font-bold text-sm hover:bg-slate-100">Cancelar</button>
+          <button onClick={guardar} disabled={guardando}
+            className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white font-bold text-sm">
+            {guardando ? 'Guardando…' : 'Guardar permisos'}
+          </button>
+        </div>
+        <p className="px-5 pb-4 -mt-2 text-[11px] text-slate-400">Los cambios se aplican la próxima vez que la persona abra la app.</p>
+      </div>
+    </div>
+  );
+}
+
+const OPCIONES_TIEMPO = [
+  { valor: 0, texto: 'Nunca' },
+  { valor: 5, texto: '5 minutos' },
+  { valor: 10, texto: '10 minutos' },
+  { valor: 15, texto: '15 minutos' },
+  { valor: 30, texto: '30 minutos' },
+  { valor: 60, texto: '1 hora' },
+  { valor: 120, texto: '2 horas' },
+];
+
+function SeguridadSesion() {
+  const [minutos, setMinutos] = useState(null);
+  const [msg, setMsg] = useState('');
+
+  useEffect(() => {
+    supabase.from('configuracion').select('sesion_inactividad_min').eq('id', 1).single()
+      .then(({ data }) => setMinutos(data?.sesion_inactividad_min ?? 0));
+  }, []);
+
+  const elegir = async (valor) => {
+    setMsg('');
+    const anterior = minutos;
+    setMinutos(valor);
+    const { error } = await supabase.from('configuracion').update({ sesion_inactividad_min: valor }).eq('id', 1);
+    if (error) { setMinutos(anterior); setMsg('No se pudo guardar.'); return; }
+    const texto = OPCIONES_TIEMPO.find((o) => o.valor === valor)?.texto;
+    registrarBitacora('Cambió cierre de sesión automático', texto);
+    window.dispatchEvent(new Event('config-sesion-cambiada'));
+    setMsg('Guardado. Se aplica en todos los dispositivos al abrir la app.');
+  };
+
+  return (
+    <div className={tarjeta}>
+      <h2 className={titulo}><Timer className="w-4 h-4" /> Seguridad de la sesión</h2>
+      <p className="text-sm text-slate-600 mb-3">
+        Cerrar la sesión automáticamente si la app no se usa durante:
+      </p>
+      {minutos === null ? (
+        <Loader2 className="w-5 h-5 animate-spin text-amber-600" />
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {OPCIONES_TIEMPO.map((o) => (
+            <button key={o.valor} type="button" onClick={() => elegir(o.valor)}
+              className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition ${
+                minutos === o.valor ? 'bg-amber-600 border-amber-600 text-white' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'
+              }`}>
+              {o.texto}
+            </button>
+          ))}
+        </div>
+      )}
+      {msg && <p className="text-xs font-semibold text-emerald-700 mt-2">{msg}</p>}
+      <p className="text-[11px] text-slate-400 mt-3">
+        Cuenta el tiempo sin tocar la pantalla, el ratón o el teclado, también si la app queda en segundo plano o el móvil se bloquea. Un minuto antes aparece un aviso para seguir conectado.
+      </p>
+    </div>
+  );
+}
+
 function GestionUsuarios({ perfil }) {
   const [usuarios, setUsuarios] = useState([]);
+  const [editandoPermisos, setEditandoPermisos] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [form, setForm] = useState({ nombre: '', usuario: '', clave: '', rol: 'usuario' });
   const [creando, setCreando] = useState(false);
@@ -206,6 +331,7 @@ function GestionUsuarios({ perfil }) {
                 <th className="py-2 pr-3">Rol</th>
                 <th className="py-2 pr-3">Estado</th>
                 <th className="py-2 pr-3">Contraseña</th>
+                <th className="py-2 pr-3">Permisos</th>
               </tr>
             </thead>
             <tbody>
@@ -240,14 +366,31 @@ function GestionUsuarios({ perfil }) {
                         </button>
                       )}
                     </td>
+                    <td className="py-2 pr-3">
+                      {u.rol === 'admin' ? (
+                        <span className="text-[11px] font-semibold text-slate-400 whitespace-nowrap">Todos</span>
+                      ) : (
+                        <button onClick={() => setEditandoPermisos(u)}
+                          className="px-2.5 py-1 rounded-md border border-slate-200 text-[11px] font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-1 whitespace-nowrap">
+                          <Lock className="w-3 h-3" /> {PERMISOS.filter((p) => u.permisos && u.permisos[p.id]).length}/{PERMISOS.length}
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
           <p className="text-[11px] text-slate-400 mt-2 flex items-center gap-1">
-            <ShieldCheck className="w-3 h-3" /> Pulsa en “Activo / Desactivado” para quitar o devolver el acceso a una persona.
+            <ShieldCheck className="w-3 h-3" /> Pulsa en “Activo / Desactivado” para quitar o devolver el acceso a una persona, y en “Permisos” para elegir qué puede hacer.
           </p>
+          {editandoPermisos && (
+            <ModalPermisos
+              usuario={editandoPermisos}
+              onCerrar={() => setEditandoPermisos(null)}
+              onGuardado={() => { setEditandoPermisos(null); cargar(); }}
+            />
+          )}
         </div>
       )}
     </div>
