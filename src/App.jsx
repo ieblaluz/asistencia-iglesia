@@ -8,7 +8,8 @@ import CalendarioRegistros from './CalendarioRegistros';
 import MotivosSinCulto from './MotivosSinCulto';
 import TipoCulto, { cargarInfoCulto, guardarInfoCulto, borrarInfoCulto } from './TipoCulto';
 import { PDFDownloadLink } from '@react-pdf/renderer';
-import { ReporteMensualPDF, ReporteAnualPDF, ReportePromediosPDF } from './ReportePDF';
+import { ReporteMensualPDF, ReporteAnualPDF, ReportePromediosPDF, BitacoraCultosPDF } from './ReportePDF';
+import { VistaReporteMensual, VistaReporteAnual, VistaPromedios, VistaBitacora } from './ReportesVista';
 import { Capacitor } from '@capacitor/core';
 
 import { 
@@ -23,6 +24,7 @@ import {
   Plus,
   Minus,
   Edit3,
+  ScrollText,
   X,
   AlertTriangle,
   TrendingUp,
@@ -162,6 +164,8 @@ export default function App() {
   const [promedioMes, setPromedioMes] = useState('ALL');
   const [datosReporte, setDatosReporte] = useState([]);
   const [cargandoReporte, setCargandoReporte] = useState(false);
+  const [datosBitacora, setDatosBitacora] = useState({ asistencia: [], info: [], sinCulto: [] });
+  const [filtroBitacora, setFiltroBitacora] = useState('todo');
 
   // --- ESTADOS FORMULARIO CONFIGURACIÓN ---
   const [formConfig, setFormConfig] = useState({ nombre_iglesia: '', direccion: '', logo_url: '' });
@@ -449,7 +453,7 @@ export default function App() {
         const ultimoDia = new Date(parseInt(anioReporte), parseInt(mesReporte), 0).getDate();
         const finMes = `${anioReporte}-${mesReporte}-${String(ultimoDia).padStart(2, '0')}`;
         query = query.gte('fecha', inicioMes).lte('fecha', finMes);
-      } else if (subTabReporte === 'promedios' && promedioMes !== 'ALL') {
+      } else if ((subTabReporte === 'promedios' || subTabReporte === 'bitacora') && promedioMes !== 'ALL') {
         const inicioMes = `${anioReporte}-${promedioMes}-01`;
         const ultimoDia = new Date(parseInt(anioReporte), parseInt(promedioMes), 0).getDate();
         const finMes = `${anioReporte}-${promedioMes}-${String(ultimoDia).padStart(2, '0')}`;
@@ -463,6 +467,18 @@ export default function App() {
       const { data, error } = await query;
       if (error) throw error;
       setDatosReporte(data || []);
+
+      if (subTabReporte === 'bitacora') {
+        const desde = promedioMes !== 'ALL' ? `${anioReporte}-${promedioMes}-01` : `${anioReporte}-01-01`;
+        const hasta = promedioMes !== 'ALL'
+          ? `${anioReporte}-${promedioMes}-${String(new Date(parseInt(anioReporte), parseInt(promedioMes), 0).getDate()).padStart(2, '0')}`
+          : `${anioReporte}-12-31`;
+        const [info, sc] = await Promise.all([
+          supabase.from('cultos_info').select('fecha, turno, tipo, comentario, observacion').gte('fecha', desde).lte('fecha', hasta),
+          supabase.from('dias_sin_culto').select('fecha, turno, motivo').gte('fecha', desde).lte('fecha', hasta),
+        ]);
+        setDatosBitacora({ asistencia: data || [], info: info.data || [], sinCulto: sc.data || [] });
+      }
     } catch (err) {
       console.error('Error al cargar reportes:', err);
       setDatosReporte([]);
@@ -960,6 +976,14 @@ export default function App() {
                   >
                     <TrendingUp className="w-3.5 h-3.5" /> Promedios
                   </button>
+                  <button
+                    onClick={() => setSubTabReporte('bitacora')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold uppercase whitespace-nowrap transition ${
+                      subTabReporte === 'bitacora' ? 'bg-amber-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    <ScrollText className="w-3.5 h-3.5" /> Bitácora
+                  </button>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
@@ -979,7 +1003,7 @@ export default function App() {
                   )}
 
                   {/* Selector de Mes/Anual para Vista Promedios */}
-                  {subTabReporte === 'promedios' && (
+                  {(subTabReporte === 'promedios' || subTabReporte === 'bitacora') && (
                     <select
                       value={promedioMes}
                       onChange={(e) => setPromedioMes(e.target.value)}
@@ -1036,8 +1060,23 @@ export default function App() {
 
                   {subTabReporte === 'promedios' && (
                     <PDFDownloadLink
-                      document={<ReportePromediosPDF datos={datosReporte} anio={anioReporte} config={configIglesia} />}
+                      document={<ReportePromediosPDF datos={datosReporte} anio={anioReporte} mesNombre={promedioMes === 'ALL' ? '' : MESES.find(m => m.id === promedioMes)?.nombre} config={configIglesia} />}
                       fileName={`reporte_promedios_${anioReporte}.pdf`}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-800 hover:bg-amber-900 text-white rounded-lg text-xs font-bold transition shadow-sm ml-auto sm:ml-2 cursor-pointer"
+                    >
+                      {({ loading }) => (
+                        <>
+                          <Printer className="w-3.5 h-3.5" />
+                          {loading ? 'Generando PDF...' : 'Descargar PDF'}
+                        </>
+                      )}
+                    </PDFDownloadLink>
+                  )}
+
+                  {subTabReporte === 'bitacora' && (
+                    <PDFDownloadLink
+                      document={<BitacoraCultosPDF datos={datosBitacora} filtro={filtroBitacora} periodo={promedioMes === 'ALL' ? `Año ${anioReporte}` : `${MESES.find(m => m.id === promedioMes)?.nombre} ${anioReporte}`} config={configIglesia} />}
+                      fileName={`bitacora_cultos_${anioReporte}.pdf`}
                       className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-800 hover:bg-amber-900 text-white rounded-lg text-xs font-bold transition shadow-sm ml-auto sm:ml-2 cursor-pointer"
                     >
                       {({ loading }) => (
@@ -1055,9 +1094,10 @@ export default function App() {
                 <div className="py-12 text-center text-slate-400 font-medium animate-pulse text-sm">Cargando datos...</div>
               ) : (
                 <>
-                  {subTabReporte === 'mensual' && <VistaReporteMensual datos={datosReporte} mesNombre={MESES.find(m => m.id === mesReporte)?.nombre} anio={anioReporte} config={configIglesia} />}
-                  {subTabReporte === 'anual' && <VistaReporteAnual datos={datosReporte} anio={anioReporte} config={configIglesia} />}
-                  {subTabReporte === 'promedios' && <VistaPromedios datos={datosReporte} anio={anioReporte} promedioMes={promedioMes} config={configIglesia} />}
+                  {subTabReporte === 'mensual' && <VistaReporteMensual datos={datosReporte} />}
+                  {subTabReporte === 'anual' && <VistaReporteAnual datos={datosReporte} />}
+                  {subTabReporte === 'promedios' && <VistaPromedios datos={datosReporte} />}
+                  {subTabReporte === 'bitacora' && <VistaBitacora datos={datosBitacora} filtro={filtroBitacora} onFiltro={setFiltroBitacora} />}
                 </>
               )}
             </div>
@@ -1469,369 +1509,6 @@ export default function App() {
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-// VISTAS DE PANTALLA DE REPORTES
-function VistaReporteMensual({ datos, mesNombre, anio, config }) {
-  const fechasMap = {};
-  datos.forEach(item => {
-    const f = item.fecha;
-    if (!fechasMap[f]) {
-      fechasMap[f] = { fecha: f, fechaLatina: formatearFechaLatina(f), clases: {}, totalManana: 0, totalTarde: 0, totalFecha: 0 };
-    }
-    if (!fechasMap[f].clases[item.clase]) {
-      fechasMap[f].clases[item.clase] = { manana: 0, tarde: 0, total: 0 };
-    }
-    if (item.turno === 'Mañana') {
-      fechasMap[f].clases[item.clase].manana += item.cantidad;
-      fechasMap[f].totalManana += item.cantidad;
-    } else {
-      fechasMap[f].clases[item.clase].tarde += item.cantidad;
-      fechasMap[f].totalTarde += item.cantidad;
-    }
-    fechasMap[f].clases[item.clase].total += item.cantidad;
-    fechasMap[f].totalFecha += item.cantidad;
-  });
-
-  const fechasOrdenadas = Object.values(fechasMap).sort((a, b) => a.fecha.localeCompare(b.fecha));
-  let granTotalManana = 0, granTotalTarde = 0, granTotalGeneral = 0;
-  fechasOrdenadas.forEach(f => {
-    granTotalManana += f.totalManana;
-    granTotalTarde += f.totalTarde;
-    granTotalGeneral += f.totalFecha;
-  });
-
-  return (
-    <div className="bg-white p-4 rounded-xl border border-slate-200 font-sans">
-      <div className="flex justify-between items-center mb-4 border-b pb-3">
-        <div className="flex items-center gap-3">
-          {config.logo_url ? (
-            <img src={config.logo_url} alt="Logo" className="w-10 h-10 rounded object-cover" />
-          ) : (
-            <div className="w-10 h-10 bg-amber-700 text-white font-black text-xl flex items-center justify-center rounded">✝</div>
-          )}
-          <div>
-            <p className="font-bold text-xs text-amber-900 uppercase">{config.nombre_iglesia}</p>
-            <p className="text-[10px] text-slate-500">{config.direccion}</p>
-          </div>
-        </div>
-        <div className="text-right">
-          <h3 className="text-base font-black text-slate-800 tracking-tight">REPORTE MENSUAL</h3>
-          <p className="text-xs font-bold text-amber-800">MES: {mesNombre?.toUpperCase()} | AÑO: {anio}</p>
-        </div>
-      </div>
-
-      <div className="overflow-x-auto">
-        <table className="w-full text-xs border-collapse">
-          <thead>
-            <tr className="bg-amber-700 text-white font-bold">
-              <th className="p-2 border border-amber-800 text-left">FECHA</th>
-              <th className="p-2 border border-amber-800 text-left">CLASE</th>
-              <th className="p-2 border border-amber-800 text-center w-24">Mañana</th>
-              <th className="p-2 border border-amber-800 text-center w-24">Tarde</th>
-              <th className="p-2 border border-amber-800 text-center w-28">Total general</th>
-            </tr>
-          </thead>
-          <tbody>
-            {fechasOrdenadas.map((bloque) => {
-              const listaClases = Object.entries(bloque.clases);
-              return (
-                <React.Fragment key={bloque.fecha}>
-                  {listaClases.map(([nombreClase, val], idx) => (
-                    <tr key={nombreClase} className="border-b border-slate-200 hover:bg-amber-50/50">
-                      <td className="p-1.5 border-x border-slate-200 font-semibold text-slate-700">{idx === 0 ? bloque.fechaLatina : ''}</td>
-                      <td className="p-1.5 border-x border-slate-200 text-slate-800">{nombreClase}</td>
-                      <td className="p-1.5 border-x border-slate-200 text-center">{val.manana}</td>
-                      <td className="p-1.5 border-x border-slate-200 text-center">{val.tarde}</td>
-                      <td className="p-1.5 border-x border-slate-200 text-center font-bold">{val.total}</td>
-                    </tr>
-                  ))}
-                  <tr className="bg-amber-100/80 font-bold text-amber-950 border-y-2 border-amber-300">
-                    <td colSpan={2} className="p-2 border border-amber-200">Total {bloque.fechaLatina}</td>
-                    <td className="p-2 text-center border border-amber-200">{bloque.totalManana}</td>
-                    <td className="p-2 text-center border border-amber-200">{bloque.totalTarde}</td>
-                    <td className="p-2 text-center border border-amber-200">{bloque.totalFecha}</td>
-                  </tr>
-                </React.Fragment>
-              );
-            })}
-            <tr className="bg-amber-900 text-white font-black text-sm">
-              <td colSpan={2} className="p-2.5">Total general</td>
-              <td className="p-2.5 text-center">{granTotalManana}</td>
-              <td className="p-2.5 text-center">{granTotalTarde}</td>
-              <td className="p-2.5 text-center">{granTotalGeneral}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-function VistaReporteAnual({ datos, anio, config }) {
-  const mesesMap = {};
-  MESES.forEach(m => {
-    mesesMap[m.id] = { numMes: parseInt(m.id), nombreMes: m.nombre.toUpperCase(), clases: {}, totalManana: 0, totalTarde: 0, totalMes: 0 };
-  });
-
-  datos.forEach(item => {
-    const mId = item.fecha.split('-')[1];
-    if (mesesMap[mId]) {
-      if (!mesesMap[mId].clases[item.clase]) {
-        mesesMap[mId].clases[item.clase] = { manana: 0, tarde: 0, total: 0 };
-      }
-      if (item.turno === 'Mañana') {
-        mesesMap[mId].clases[item.clase].manana += item.cantidad;
-        mesesMap[mId].totalManana += item.cantidad;
-      } else {
-        mesesMap[mId].clases[item.clase].tarde += item.cantidad;
-        mesesMap[mId].totalTarde += item.cantidad;
-      }
-      mesesMap[mId].clases[item.clase].total += item.cantidad;
-      mesesMap[mId].totalMes += item.cantidad;
-    }
-  });
-
-  const mesesConDatos = Object.values(mesesMap).sort((a, b) => a.numMes - b.numMes).filter(m => m.totalMes > 0 || Object.keys(m.clases).length > 0);
-  let granTotalManana = 0, granTotalTarde = 0, granTotalAnio = 0;
-  mesesConDatos.forEach(m => {
-    granTotalManana += m.totalManana;
-    granTotalTarde += m.totalTarde;
-    granTotalAnio += m.totalMes;
-  });
-
-  return (
-    <div className="bg-white p-4 rounded-xl border border-slate-200 font-sans">
-      <div className="flex justify-between items-center mb-4 border-b pb-3">
-        <div className="flex items-center gap-3">
-          {config.logo_url ? (
-            <img src={config.logo_url} alt="Logo" className="w-10 h-10 rounded object-cover" />
-          ) : (
-            <div className="w-10 h-10 bg-amber-700 text-white font-black text-xl flex items-center justify-center rounded">✝</div>
-          )}
-          <div>
-            <p className="font-bold text-xs text-amber-900 uppercase">{config.nombre_iglesia}</p>
-            <p className="text-[10px] text-slate-500">{config.direccion}</p>
-          </div>
-        </div>
-        <div className="text-right">
-          <h3 className="text-base font-black text-slate-800 tracking-tight">REPORTE ANUAL</h3>
-          <p className="text-xs font-bold text-amber-800">AÑO: {anio}</p>
-        </div>
-      </div>
-
-      <div className="overflow-x-auto">
-        <table className="w-full text-xs border-collapse">
-          <thead>
-            <tr className="bg-amber-700 text-white font-bold">
-              <th className="p-2 border border-amber-800 text-center w-12">MES</th>
-              <th className="p-2 border border-amber-800 text-left w-28">Nombre</th>
-              <th className="p-2 border border-amber-800 text-left">CLASE</th>
-              <th className="p-2 border border-amber-800 text-center w-24">Mañana</th>
-              <th className="p-2 border border-amber-800 text-center w-24">Tarde</th>
-              <th className="p-2 border border-amber-800 text-center w-28">Total general</th>
-            </tr>
-          </thead>
-          <tbody>
-            {mesesConDatos.map((mes) => {
-              const listaClases = Object.entries(mes.clases);
-              return (
-                <React.Fragment key={mes.numMes}>
-                  {listaClases.map(([nombreClase, val], idx) => (
-                    <tr key={nombreClase} className="border-b border-slate-200 hover:bg-amber-50/50">
-                      <td className="p-1.5 border-x border-slate-200 text-center font-bold text-slate-600">{idx === 0 ? mes.numMes : ''}</td>
-                      <td className="p-1.5 border-x border-slate-200 font-bold text-slate-800">{idx === 0 ? mes.nombreMes : ''}</td>
-                      <td className="p-1.5 border-x border-slate-200 text-slate-800">{nombreClase}</td>
-                      <td className="p-1.5 border-x border-slate-200 text-center">{val.manana}</td>
-                      <td className="p-1.5 border-x border-slate-200 text-center">{val.tarde}</td>
-                      <td className="p-1.5 border-x border-slate-200 text-center font-bold">{val.total}</td>
-                    </tr>
-                  ))}
-                  <tr className="bg-amber-100/80 font-bold text-amber-950 border-y-2 border-amber-300">
-                    <td colSpan={3} className="p-2 border border-amber-200">Total {mes.numMes}</td>
-                    <td className="p-2 text-center border border-amber-200">{mes.totalManana}</td>
-                    <td className="p-2 text-center border border-amber-200">{mes.totalTarde}</td>
-                    <td className="p-2 text-center border border-amber-200">{mes.totalMes}</td>
-                  </tr>
-                </React.Fragment>
-              );
-            })}
-            <tr className="bg-amber-900 text-white font-black text-sm">
-              <td colSpan={3} className="p-2.5">Total general</td>
-              <td className="p-2.5 text-center">{granTotalManana}</td>
-              <td className="p-2.5 text-center">{granTotalTarde}</td>
-              <td className="p-2.5 text-center">{granTotalAnio}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-function VistaPromedios({ datos, anio, promedioMes, config }) {
-  const fechasDomManana = new Set(datos.filter(d => d.turno === 'Mañana').map(d => d.fecha));
-  const fechasDomTarde = new Set(
-    datos.filter(d => d.turno === 'Tarde' && new Date(d.fecha + 'T00:00:00').getDay() !== 3).map(d => d.fecha)
-  );
-  const fechasMiercoles = new Set(
-    datos.filter(d => new Date(d.fecha + 'T00:00:00').getDay() === 3).map(d => d.fecha)
-  );
-
-  const numDomManana = fechasDomManana.size || 1;
-  const numDomTarde = fechasDomTarde.size || 1;
-  const numMiercoles = fechasMiercoles.size || 1;
-
-  const domMananaClases = {};
-  const domTardeClases = {};
-  const miercolesClases = {};
-
-  datos.forEach(item => {
-    const esMiercoles = new Date(item.fecha + 'T00:00:00').getDay() === 3;
-    if (esMiercoles) {
-      miercolesClases[item.clase] = (miercolesClases[item.clase] || 0) + item.cantidad;
-    } else if (item.turno === 'Mañana') {
-      domMananaClases[item.clase] = (domMananaClases[item.clase] || 0) + item.cantidad;
-    } else if (item.turno === 'Tarde') {
-      domTardeClases[item.clase] = (domTardeClases[item.clase] || 0) + item.cantidad;
-    }
-  });
-
-  const calcularFilas = (objetoClases, totalCultos) => {
-    return Object.entries(objetoClases).map(([clase, suma]) => ({
-      clase,
-      promedio: Number((suma / totalCultos).toFixed(1))
-    }));
-  };
-
-  const rowsDomManana = calcularFilas(domMananaClases, numDomManana);
-  const rowsDomTarde = calcularFilas(domTardeClases, numDomTarde);
-  const rowsMiercoles = calcularFilas(miercolesClases, numMiercoles);
-
-  const subtotalDomManana = rowsDomManana.reduce((a, b) => a + b.promedio, 0);
-  const subtotalDomTarde = rowsDomTarde.reduce((a, b) => a + b.promedio, 0);
-  const subtotalMiercoles = rowsMiercoles.reduce((a, b) => a + b.promedio, 0);
-
-  const totalGeneralPromedio = Number((subtotalDomManana + subtotalDomTarde + subtotalMiercoles).toFixed(1));
-
-  return (
-    <div className="max-w-3xl mx-auto bg-white p-4 rounded-xl border border-slate-200 font-sans space-y-4">
-      <div className="flex justify-between items-center border-b pb-3">
-        <div className="flex items-center gap-3">
-          {config.logo_url ? (
-            <img src={config.logo_url} alt="Logo" className="w-10 h-10 rounded object-cover" />
-          ) : (
-            <div className="w-10 h-10 bg-amber-700 text-white font-black text-xl flex items-center justify-center rounded">✝</div>
-          )}
-          <div>
-            <p className="font-bold text-xs text-amber-900 uppercase">{config.nombre_iglesia}</p>
-            <p className="text-[10px] text-slate-500">{config.direccion}</p>
-          </div>
-        </div>
-        <div className="text-right">
-          <h3 className="text-base font-black text-slate-800 tracking-tight">PROMEDIOS DE ASISTENCIA</h3>
-          <p className="text-xs font-bold text-amber-800">
-            {promedioMes === 'ALL' || !promedioMes
-              ? `AÑO: ${anio}`
-              : `${MESES.find(m => m.id === promedioMes)?.nombre.toUpperCase()} ${anio}`}
-          </p>
-        </div>
-      </div>
-
-      {/* TABLA DOMINGO MAÑANA */}
-      <div>
-        <h4 className="text-xs font-bold text-amber-900 uppercase mb-1">Cultos Dominicales - Turno Mañana ({numDomManana} cultos)</h4>
-        <table className="w-full text-xs border-collapse border border-slate-200">
-          <thead>
-            <tr className="bg-amber-700 text-white font-bold">
-              <th className="p-1.5 text-left border">Clase / Grupo</th>
-              <th className="p-1.5 text-center w-28 border">Promedio</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rowsDomManana.length === 0 ? (
-              <tr><td colSpan={2} className="p-2 text-center text-slate-400">Sin datos registrados</td></tr>
-            ) : (
-              rowsDomManana.map(r => (
-                <tr key={r.clase} className="border-b hover:bg-amber-50/50">
-                  <td className="p-1.5 border">{r.clase}</td>
-                  <td className="p-1.5 border text-center font-bold">{r.promedio}</td>
-                </tr>
-              ))
-            )}
-            <tr className="bg-amber-100 font-bold text-amber-950">
-              <td className="p-1.5 border">Subtotal Mañana</td>
-              <td className="p-1.5 border text-center">{subtotalDomManana.toFixed(1)}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      {/* TABLA DOMINGO TARDE */}
-      <div>
-        <h4 className="text-xs font-bold text-amber-900 uppercase mb-1">Cultos Dominicales - Turno Tarde ({numDomTarde} cultos)</h4>
-        <table className="w-full text-xs border-collapse border border-slate-200">
-          <thead>
-            <tr className="bg-amber-700 text-white font-bold">
-              <th className="p-1.5 text-left border">Clase / Grupo</th>
-              <th className="p-1.5 text-center w-28 border">Promedio</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rowsDomTarde.length === 0 ? (
-              <tr><td colSpan={2} className="p-2 text-center text-slate-400">Sin datos registrados</td></tr>
-            ) : (
-              rowsDomTarde.map(r => (
-                <tr key={r.clase} className="border-b hover:bg-amber-50/50">
-                  <td className="p-1.5 border">{r.clase}</td>
-                  <td className="p-1.5 border text-center font-bold">{r.promedio}</td>
-                </tr>
-              ))
-            )}
-            <tr className="bg-amber-100 font-bold text-amber-950">
-              <td className="p-1.5 border">Subtotal Tarde</td>
-              <td className="p-1.5 border text-center">{subtotalDomTarde.toFixed(1)}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      {/* TABLA MIÉRCOLES */}
-      <div>
-        <h4 className="text-xs font-bold text-amber-900 uppercase mb-1">Cultos de Miércoles ({numMiercoles} cultos)</h4>
-        <table className="w-full text-xs border-collapse border border-slate-200">
-          <thead>
-            <tr className="bg-amber-700 text-white font-bold">
-              <th className="p-1.5 text-left border">Clase / Grupo</th>
-              <th className="p-1.5 text-center w-28 border">Promedio</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rowsMiercoles.length === 0 ? (
-              <tr><td colSpan={2} className="p-2 text-center text-slate-400">Sin datos registrados</td></tr>
-            ) : (
-              rowsMiercoles.map(r => (
-                <tr key={r.clase} className="border-b hover:bg-amber-50/50">
-                  <td className="p-1.5 border">{r.clase}</td>
-                  <td className="p-1.5 border text-center font-bold">{r.promedio}</td>
-                </tr>
-              ))
-            )}
-            <tr className="bg-amber-100 font-bold text-amber-950">
-              <td className="p-1.5 border">Subtotal Miércoles</td>
-              <td className="p-1.5 border text-center">{subtotalMiercoles.toFixed(1)}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      {/* TOTAL GENERAL DE PROMEDIOS */}
-      <div className="bg-amber-900 text-white p-3 rounded-xl flex justify-between items-center font-black text-sm">
-        <span>PROMEDIO GENERAL DE ASISTENCIA</span>
-        <span>{totalGeneralPromedio}</span>
-      </div>
     </div>
   );
 }
