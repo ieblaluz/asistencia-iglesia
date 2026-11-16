@@ -84,7 +84,7 @@ function calcularMes(anio, mes, registros, sinCulto, motivos, especiales, observ
   return { celdas, faltan, completos };
 }
 
-function Mes({ anio, mes, registros, sinCulto, motivos, especiales, observaciones, hoyISO, fechaSeleccionada, onSeleccionar, onDetalle, cargando, tituloVisible }) {
+function Mes({ apilado, anio, mes, registros, sinCulto, motivos, especiales, observaciones, hoyISO, fechaSeleccionada, onSeleccionar, onDetalle, cargando, tituloVisible }) {
   const { celdas, faltan, completos } = useMemo(
     () => calcularMes(anio, mes, registros, sinCulto, motivos, especiales, observaciones, hoyISO),
     [anio, mes, registros, sinCulto, motivos, especiales, observaciones, hoyISO]
@@ -115,7 +115,7 @@ function Mes({ anio, mes, registros, sinCulto, motivos, especiales, observacione
               title={describir(c)}
               onClick={() => onSeleccionar(c.iso, c.pendientes[0])}
               onDoubleClick={() => { if (c.hechos.size > 0 || c.anulados.size > 0) onDetalle(c.iso); }}
-              className={`relative h-10 md:h-11 rounded-lg border text-sm font-bold transition hover:ring-2 hover:ring-amber-300 ${ESTILOS[c.estado]} ${
+              className={`relative ${apilado ? 'h-10 md:h-11 lg:h-9' : 'h-10 md:h-11'} rounded-lg border text-sm font-bold transition hover:ring-2 hover:ring-amber-300 ${ESTILOS[c.estado]} ${
                 c.iso === fechaSeleccionada ? 'ring-2 ring-amber-600' : ''
               }`}
             >
@@ -143,7 +143,7 @@ function Mes({ anio, mes, registros, sinCulto, motivos, especiales, observacione
   );
 }
 
-export default function CalendarioRegistros({ fechaSeleccionada, onSeleccionar, refrescar }) {
+export default function CalendarioRegistros({ fechaSeleccionada, onSeleccionar, refrescar, apilado = false }) {
   const { puede } = useAuth();
   const puedeSinCulto = puede('sin_culto');
   // mesVisible = el mes de la derecha (el de la fecha elegida).
@@ -276,7 +276,7 @@ export default function CalendarioRegistros({ fechaSeleccionada, onSeleccionar, 
   const cambiarMes = (delta) => setMesVisible(new Date(mesVisible.getFullYear(), mesVisible.getMonth() + delta, 1));
   const [detalle, setDetalle] = useState(null);
   const tieneDatos = (iso) => (registros[iso] && registros[iso].size > 0) || (sinCulto[iso] && sinCulto[iso].size > 0);
-  const comun = { registros, sinCulto, motivos, especiales, observaciones, hoyISO, fechaSeleccionada, onSeleccionar, onDetalle: setDetalle, cargando };
+  const comun = { apilado, registros, sinCulto, motivos, especiales, observaciones, hoyISO, fechaSeleccionada, onSeleccionar, onDetalle: setDetalle, cargando };
 
   return (
     <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
@@ -297,12 +297,12 @@ export default function CalendarioRegistros({ fechaSeleccionada, onSeleccionar, 
         </div>
       </div>
 
-      <div className="flex gap-6">
+      <div className={`flex gap-6 ${apilado ? 'lg:flex-col lg:gap-3' : ''}`}>
         {/* Mes anterior: solo en ordenador */}
         <div className="hidden md:flex flex-1 min-w-0">
           <Mes anio={mesAnterior.getFullYear()} mes={mesAnterior.getMonth()} tituloVisible {...comun} />
         </div>
-        <div className="hidden md:block w-px bg-slate-100" />
+        <div className={`hidden md:block bg-slate-100 ${apilado ? 'w-px lg:w-full lg:h-px' : 'w-px'}`} />
         <Mes anio={mesVisible.getFullYear()} mes={mesVisible.getMonth()} tituloVisible {...comun} />
       </div>
 

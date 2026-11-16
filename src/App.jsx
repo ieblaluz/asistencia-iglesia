@@ -89,7 +89,7 @@ export default function App() {
     const el = asideRef.current;
     if (!el) return;
     const actualizar = () => {
-      const alto = window.innerWidth < 768 ? el.offsetHeight : 0;
+      const alto = el.offsetHeight;
       document.documentElement.style.setProperty('--alto-cabecera', `${alto}px`);
     };
     actualizar();
@@ -647,12 +647,12 @@ export default function App() {
   });
 
   return (
-    <div className="flex flex-col md:flex-row min-h-screen fondo-app text-slate-800 font-sans w-full overflow-x-clip">
+    <div className="flex flex-col min-h-screen fondo-app text-slate-800 font-sans w-full overflow-x-clip">
       {/* BARRA LATERAL / CABECERA RESPONSIVA */}
-      <aside ref={asideRef} className="fondo-menu text-white border-b md:border-b-0 md:border-r border-black/20 sticky top-0 z-40 md:w-64 md:h-screen md:overflow-y-auto md:shrink-0 flex flex-col justify-between p-3 md:p-4 shadow-sm md:shadow-none">
-        <div className="md:space-y-6">
+      <aside ref={asideRef} className="fondo-menu text-white border-b border-black/20 sticky top-0 z-40 flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 md:px-5 md:py-2 shadow-sm">
+        <div className="flex flex-col md:flex-row md:items-center md:gap-6 min-w-0">
           {/* Logo y Nombre de la Iglesia */}
-          <div className="flex items-center gap-3 p-2 md:bg-white/10 md:border md:border-white/10 rounded-xl">
+          <div className="flex items-center gap-3 p-2 md:p-1.5 md:pr-3 md:bg-white/10 md:border md:border-white/10 rounded-xl md:max-w-xs min-w-0">
             {configIglesia.logo_url ? (
               <img src={configIglesia.logo_url} alt="Logo" className="w-9 h-9 md:w-10 md:h-10 rounded-lg object-cover bg-white p-0.5 border border-slate-200 shrink-0" />
             ) : (
@@ -665,10 +665,10 @@ export default function App() {
           </div>
 
           {/* Navegación Pestañas */}
-          <nav className="fixed md:static bottom-0 inset-x-0 z-40 flex md:flex-col gap-1 md:gap-1.5 fondo-menu md:bg-none md:bg-transparent border-t border-white/10 md:border-0 px-2 md:p-0 pt-1.5 pb-[calc(0.375rem+env(safe-area-inset-bottom,0px))] md:pb-0 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] md:shadow-none">
+          <nav className="fixed md:static bottom-0 inset-x-0 z-40 flex md:flex-row gap-1 md:gap-1.5 fondo-menu md:bg-none md:bg-transparent border-t border-white/10 md:border-0 px-2 md:p-0 pt-1.5 pb-[calc(0.375rem+env(safe-area-inset-bottom,0px))] md:pb-0 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] md:shadow-none">
             <button
               onClick={() => setTab('registro')}
-              className={`flex-1 md:flex-none flex flex-col md:flex-row items-center justify-center md:justify-start gap-0.5 md:gap-2 px-1 md:px-4 py-1.5 md:py-3 rounded-lg md:rounded-xl font-bold text-[10px] md:text-xs uppercase tracking-wide transition ${
+              className={`flex-1 md:flex-none flex flex-col md:flex-row items-center justify-center md:justify-start gap-0.5 md:gap-2 px-1 md:px-4 py-1.5 md:py-2.5 rounded-lg md:rounded-xl font-bold text-[10px] md:text-xs uppercase tracking-wide transition ${
                 tab === 'registro' ? 'bg-amber-600 text-white shadow-md' : 'text-slate-300 hover:bg-white/10 hover:text-white'
               }`}
             >
@@ -678,7 +678,7 @@ export default function App() {
             {puede('ver_reportes') && (
             <button
               onClick={() => setTab('reportes')}
-              className={`flex-1 md:flex-none flex flex-col md:flex-row items-center justify-center md:justify-start gap-0.5 md:gap-2 px-1 md:px-4 py-1.5 md:py-3 rounded-lg md:rounded-xl font-bold text-[10px] md:text-xs uppercase tracking-wide transition ${
+              className={`flex-1 md:flex-none flex flex-col md:flex-row items-center justify-center md:justify-start gap-0.5 md:gap-2 px-1 md:px-4 py-1.5 md:py-2.5 rounded-lg md:rounded-xl font-bold text-[10px] md:text-xs uppercase tracking-wide transition ${
                 tab === 'reportes' ? 'bg-amber-600 text-white shadow-md' : 'text-slate-300 hover:bg-white/10 hover:text-white'
               }`}
             >
@@ -689,7 +689,7 @@ export default function App() {
             {puede('ver_ajustes') && (
             <button
               onClick={() => setTab('configuracion')}
-              className={`flex-1 md:flex-none flex flex-col md:flex-row items-center justify-center md:justify-start gap-0.5 md:gap-2 px-1 md:px-4 py-1.5 md:py-3 rounded-lg md:rounded-xl font-bold text-[10px] md:text-xs uppercase tracking-wide transition ${
+              className={`flex-1 md:flex-none flex flex-col md:flex-row items-center justify-center md:justify-start gap-0.5 md:gap-2 px-1 md:px-4 py-1.5 md:py-2.5 rounded-lg md:rounded-xl font-bold text-[10px] md:text-xs uppercase tracking-wide transition ${
                 tab === 'configuracion' ? 'bg-amber-600 text-white shadow-md' : 'text-slate-300 hover:bg-white/10 hover:text-white'
               }`}
             >
@@ -699,7 +699,7 @@ export default function App() {
             )}
             <button
               onClick={() => setTab('usuarios')}
-              className={`flex-1 md:flex-none flex flex-col md:flex-row items-center justify-center md:justify-start gap-0.5 md:gap-2 px-1 md:px-4 py-1.5 md:py-3 rounded-lg md:rounded-xl font-bold text-[10px] md:text-xs uppercase tracking-wide transition ${
+              className={`flex-1 md:flex-none flex flex-col md:flex-row items-center justify-center md:justify-start gap-0.5 md:gap-2 px-1 md:px-4 py-1.5 md:py-2.5 rounded-lg md:rounded-xl font-bold text-[10px] md:text-xs uppercase tracking-wide transition ${
                 tab === 'usuarios' ? 'bg-amber-600 text-white shadow-md' : 'text-slate-300 hover:bg-white/10 hover:text-white'
               }`}
             >
@@ -710,8 +710,8 @@ export default function App() {
         </div>
 
         {/* Footer Sidebar & Indicador de Modo Nativo */}
-        <div className="hidden md:block text-center pt-4 border-t border-white/15">
-          <div className="flex items-center gap-2 mb-3 p-2 bg-white/10 border border-white/10 rounded-xl text-left">
+        <div className="hidden md:flex items-center gap-4 text-center shrink-0">
+          <div className="flex items-center gap-2 p-1.5 bg-white/10 border border-white/10 rounded-xl text-left order-2">
             <div className="w-8 h-8 rounded-full bg-amber-600 text-white flex items-center justify-center font-bold text-sm shrink-0">
               {(perfil?.nombre || '?').charAt(0).toUpperCase()}
             </div>
@@ -723,19 +723,21 @@ export default function App() {
               <LogOut className="w-4 h-4" />
             </button>
           </div>
-          <div className="flex items-center justify-center gap-1.5 text-slate-400 text-xs font-bold mb-1">
+          <div className="hidden xl:flex flex-col items-end text-slate-400 text-xs font-bold order-1">
+          <div className="flex items-center gap-1.5">
             {esAppNativa ? (
               <span className="flex items-center gap-1"><Smartphone className="w-3.5 h-3.5" /> App Móvil Nativa</span>
             ) : (
               <span className="flex items-center gap-1"><Monitor className="w-3.5 h-3.5" /> Modo Web Escritorio</span>
             )}
           </div>
-          <p className="text-slate-400 text-[10px]">v1.2.0 · Gestión de Asistencia</p>
+          <p className="text-slate-400 text-[10px] font-normal">v1.2.0 · Gestión de Asistencia</p>
+          </div>
         </div>
       </aside>
 
       {/* ÁREA DE CONTENIDO PRINCIPAL */}
-      <main className="flex-1 p-3 md:p-6 pb-24 md:pb-6 max-w-7xl mx-auto w-full min-w-0">
+      <main className="flex-1 p-3 md:p-5 pb-24 md:pb-5 max-w-screen-2xl mx-auto w-full min-w-0">
 
         {/* Indicador visual de estado offline */}
         {!isOnline && (
@@ -765,33 +767,20 @@ export default function App() {
         {/* PESTAÑA REGISTRO */}
         {tab === 'registro' && (
           <div className="space-y-3">
-            {existeRegistro && (
-              <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-300 flex items-center justify-between gap-2 text-amber-900 text-xs">
-                <div className="flex items-center gap-2 font-semibold">
-                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-                  <span>Ya existe un registro guardado para el <strong>{formatearFechaLatina(fecha)}</strong> ({turno}).</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => abrirModalEdicion(fecha, turno)}
-                  className="px-2.5 py-1 bg-amber-600 text-white font-bold rounded-md hover:bg-amber-700 transition shrink-0"
-                >
-                  Editar
-                </button>
-              </div>
-            )}
-
             {mensaje.texto && (
-              <div className={`p-2.5 rounded-xl flex items-center gap-2 text-xs font-bold ${
+              <div className={`fixed z-50 right-3 left-3 md:left-auto bottom-24 md:bottom-5 md:max-w-md p-3 rounded-xl shadow-lg flex items-center gap-2 text-xs font-bold ${
                 mensaje.tipo === 'exito' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-rose-50 text-rose-800 border border-rose-200'
               }`}>
                 {mensaje.tipo === 'exito' ? <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" /> : <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />}
-                {mensaje.texto}
+                <span className="flex-1">{mensaje.texto}</span>
+                <button type="button" onClick={() => setMensaje({ tipo: '', texto: '' })} className="opacity-60 hover:opacity-100">✕</button>
               </div>
             )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <div className="lg:col-span-1 bg-white rounded-xl p-4 shadow-sm border border-slate-200 h-fit">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+            <div className="space-y-4 min-w-0">
+            <div className="grid grid-cols-1 gap-4">
+              <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200 h-fit">
                 <div className="flex items-center justify-between gap-2 mb-4 pb-2 border-b border-slate-100">
                   <h2 className="text-xs font-bold text-amber-800 uppercase tracking-wider flex items-center gap-1.5">
                     <UserCheck className="w-4 h-4 text-amber-600" />
@@ -859,7 +848,7 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="lg:col-span-2 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+              <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200">
                 <div className="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
                   <h2 className="text-xs font-bold text-slate-600 uppercase tracking-wider">
                     {esMiercoles ? 'Asistencia Culto de Miércoles' : 'Asistencia por Grupos'}
@@ -909,20 +898,23 @@ export default function App() {
                 <div className="mt-4 pt-2 border-t border-slate-100">
                   <button
                     type="button"
-                    onClick={guardarAsistencia}
-                    disabled={cargando || existeRegistro || !puedeRegistrar}
+                    onClick={existeRegistro ? () => abrirModalEdicion(fecha, turno) : guardarAsistencia}
+                    disabled={cargando || !puedeRegistrar}
                     className={`w-full py-3 font-bold rounded-xl shadow transition flex items-center justify-center gap-2 text-sm ${
-                      existeRegistro || !puedeRegistrar ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none' : 'bg-amber-600 hover:bg-amber-700 text-white'
+                      !puedeRegistrar ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none' : existeRegistro ? 'bg-amber-50 text-amber-800 border border-amber-300 shadow-none hover:bg-amber-100' : 'bg-amber-600 hover:bg-amber-700 text-white'
                     }`}
                   >
                     <Save className="w-4 h-4" />
-                    {!puedeRegistrar ? 'No tienes permiso para registrar asistencia' : cargando ? 'Guardando...' : existeRegistro ? 'Registro existente (Usar opción Editar)' : 'Guardar Asistencia'}
+                    {!puedeRegistrar ? 'No tienes permiso para registrar asistencia' : cargando ? 'Guardando...' : existeRegistro ? `Ya registrado el ${formatearFechaLatina(fecha)} (${turno}) · Pulsa para ver o editar` : 'Guardar Asistencia'}
                   </button>
                 </div>
               </div>
             </div>
+            </div>
 
+            <div className="min-w-0 lg:sticky lg:top-20">
             <CalendarioRegistros
+              apilado
               fechaSeleccionada={fecha}
               onSeleccionar={(f, turnoPendiente) => {
                 handleFechaChange(f, turnoPendiente);
@@ -931,6 +923,8 @@ export default function App() {
               }}
               refrescar={mensaje}
             />
+            </div>
+            </div>
           </div>
         )}
 
