@@ -3,7 +3,7 @@ import { supabase } from './supabaseClient';
 import { registrarBitacora } from './auth';
 import DetalleDia from './DetalleDia';
 import { useAuth } from './AuthGate';
-import { CalendarDays, ChevronLeft, ChevronRight, Loader2, Ban, Undo2, Eye } from 'lucide-react';
+import { MessageSquareText, CalendarDays, ChevronLeft, ChevronRight, Loader2, Ban, Undo2, Eye } from 'lucide-react';
 
 const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 const DIAS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
@@ -33,7 +33,7 @@ const ESTILOS = {
 };
 
 const describir = (c) => {
-  const extra = c.especial ? `\n★ Especial: ${c.especial}` : '';
+  const extra = (c.especial ? `\n★ Especial: ${c.especial}` : '') + (c.observacion ? `\n💬 ${c.observacion}` : '');
   return describirBase(c) + extra;
 };
 
@@ -47,7 +47,7 @@ const describirBase = (c) => {
   return '';
 };
 
-function calcularMes(anio, mes, registros, sinCulto, motivos, especiales, hoyISO) {
+function calcularMes(anio, mes, registros, sinCulto, motivos, especiales, observaciones, hoyISO) {
   const totalDias = new Date(anio, mes + 1, 0).getDate();
   const huecoInicial = (new Date(anio, mes, 1).getDay() + 6) % 7; // semana empieza en lunes
   const celdas = Array(huecoInicial).fill(null);
@@ -78,15 +78,16 @@ function calcularMes(anio, mes, registros, sinCulto, motivos, especiales, hoyISO
     }
     const motivo = [...anulados].map((t) => motivos[`${iso}|${t}`]).filter(Boolean).join(', ');
     const especial = especiales[iso] ? especiales[iso].join(' · ') : '';
-    celdas.push({ d, iso, estado, hechos, anulados, pendientes, esperados, pasado, motivo, especial });
+    const observacion = observaciones[iso] ? observaciones[iso].join(' · ') : '';
+    celdas.push({ d, iso, estado, hechos, anulados, pendientes, esperados, pasado, motivo, especial, observacion });
   }
   return { celdas, faltan, completos };
 }
 
-function Mes({ anio, mes, registros, sinCulto, motivos, especiales, hoyISO, fechaSeleccionada, onSeleccionar, onDetalle, cargando, tituloVisible }) {
+function Mes({ anio, mes, registros, sinCulto, motivos, especiales, observaciones, hoyISO, fechaSeleccionada, onSeleccionar, onDetalle, cargando, tituloVisible }) {
   const { celdas, faltan, completos } = useMemo(
-    () => calcularMes(anio, mes, registros, sinCulto, motivos, especiales, hoyISO),
-    [anio, mes, registros, sinCulto, motivos, especiales, hoyISO]
+    () => calcularMes(anio, mes, registros, sinCulto, motivos, especiales, observaciones, hoyISO),
+    [anio, mes, registros, sinCulto, motivos, especiales, observaciones, hoyISO]
   );
 
   return (
@@ -121,6 +122,7 @@ function Mes({ anio, mes, registros, sinCulto, motivos, especiales, hoyISO, fech
               {c.d}
               {c.iso === hoyISO && <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-amber-600" />}
               {c.especial && <span className="absolute top-0.5 left-1 text-[10px] leading-none text-amber-500">★</span>}
+              {c.observacion && <MessageSquareText className="absolute bottom-1 right-1 w-3 h-3 text-sky-600" />}
               {c.esperados.length === 2 && c.estado !== 'futuro' && (
                 <span className="absolute bottom-1 left-1/2 -translate-x-1/2 flex gap-0.5">
                   {c.esperados.map((t) => (
@@ -154,6 +156,7 @@ export default function CalendarioRegistros({ fechaSeleccionada, onSeleccionar, 
   const [sinCulto, setSinCulto] = useState({});
   const [motivos, setMotivos] = useState({});
   const [especiales, setEspeciales] = useState({});
+  const [observaciones, setObservaciones] = useState({});
   const [listaMotivos, setListaMotivos] = useState([...MOTIVOS_BASE, 'Otro']);
   const [motivo, setMotivo] = useState(MOTIVOS_BASE[0]);
   const [motivoOtro, setMotivoOtro] = useState('');
@@ -191,15 +194,23 @@ export default function CalendarioRegistros({ fechaSeleccionada, onSeleccionar, 
     const [asis, sc, ci] = await Promise.all([
       supabase.from('asistencia').select('fecha, turno').gte('fecha', desde).lte('fecha', hasta),
       supabase.from('dias_sin_culto').select('fecha, turno, motivo').gte('fecha', desde).lte('fecha', hasta),
-      supabase.from('cultos_info').select('fecha, turno, comentario').eq('tipo', 'Especial').gte('fecha', desde).lte('fecha', hasta),
+      supabase.from('cultos_info').select('fecha, turno, tipo, comentario, observacion').gte('fecha', desde).lte('fecha', hasta),
     ]);
     if (!ci.error) {
       const e = {};
+      const o = {};
       (ci.data || []).forEach((f) => {
-        if (!e[f.fecha]) e[f.fecha] = [];
-        e[f.fecha].push(`${f.turno}: ${f.comentario || ''}`);
+        if (f.tipo === 'Especial') {
+          if (!e[f.fecha]) e[f.fecha] = [];
+          e[f.fecha].push(`${f.turno}: ${f.comentario || ''}`);
+        }
+        if (f.observacion) {
+          if (!o[f.fecha]) o[f.fecha] = [];
+          o[f.fecha].push(`${f.turno}: ${f.observacion}`);
+        }
       });
       setEspeciales(e);
+      setObservaciones(o);
     }
     if (!asis.error) setRegistros(agrupar(asis.data));
     if (!sc.error) {
@@ -265,7 +276,7 @@ export default function CalendarioRegistros({ fechaSeleccionada, onSeleccionar, 
   const cambiarMes = (delta) => setMesVisible(new Date(mesVisible.getFullYear(), mesVisible.getMonth() + delta, 1));
   const [detalle, setDetalle] = useState(null);
   const tieneDatos = (iso) => (registros[iso] && registros[iso].size > 0) || (sinCulto[iso] && sinCulto[iso].size > 0);
-  const comun = { registros, sinCulto, motivos, especiales, hoyISO, fechaSeleccionada, onSeleccionar, onDetalle: setDetalle, cargando };
+  const comun = { registros, sinCulto, motivos, especiales, observaciones, hoyISO, fechaSeleccionada, onSeleccionar, onDetalle: setDetalle, cargando };
 
   return (
     <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
@@ -353,6 +364,7 @@ export default function CalendarioRegistros({ fechaSeleccionada, onSeleccionar, 
         <span className="flex items-center gap-1.5"><span className="w-3.5 h-3.5 rounded bg-rose-50 border border-dashed border-rose-300" /> Sin registrar</span>
         <span className="flex items-center gap-1.5"><span className="w-3.5 h-3.5 rounded bg-sky-50 border border-sky-200" /> Culto en otro día</span>
         <span className="flex items-center gap-1.5"><span className="text-amber-500 text-sm leading-none">★</span> Culto especial</span>
+        <span className="flex items-center gap-1.5"><MessageSquareText className="w-3.5 h-3.5 text-sky-600" /> Con observación</span>
         <span className="flex items-center gap-1.5"><span className="w-3.5 h-3.5 rounded bg-slate-100 border border-slate-200" /> Sin culto</span>
         <span className="text-[11px] text-slate-400 md:ml-auto">Un clic: seleccionar · Doble clic: ver detalle</span>
       </div>

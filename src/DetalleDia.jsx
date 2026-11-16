@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from './supabaseClient';
-import { X, Loader2, Sparkles, Ban, Users, UserPlus, Sigma } from 'lucide-react';
+import { MessageSquareText, X, Loader2, Sparkles, Ban, Users, UserPlus, Sigma } from 'lucide-react';
 
 const TURNOS = ['Mañana', 'Tarde'];
 
@@ -14,7 +14,7 @@ export default function DetalleDia({ fecha, onCerrar }) {
       const [asis, grupos, info, sc] = await Promise.all([
         supabase.from('asistencia').select('clase, turno, cantidad, creado_por').eq('fecha', fecha),
         supabase.from('grupos_asistencia').select('nombre, orden'),
-        supabase.from('cultos_info').select('turno, tipo, comentario').eq('fecha', fecha),
+        supabase.from('cultos_info').select('turno, tipo, comentario, observacion').eq('fecha', fecha),
         supabase.from('dias_sin_culto').select('turno, motivo').eq('fecha', fecha),
       ]);
 
@@ -48,6 +48,7 @@ export default function DetalleDia({ fecha, onCerrar }) {
           valor,
           especiales: (info.data || []).filter((i) => i.tipo === 'Especial'),
           sinCulto: sc.data || [],
+          observaciones: (info.data || []).filter((i) => i.observacion),
           registradoPor,
         });
       }
@@ -149,6 +150,14 @@ export default function DetalleDia({ fecha, onCerrar }) {
                 <div key={e.turno} className="flex gap-2 p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-sm">
                   <Sparkles className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                   <p className="text-slate-700"><b>Culto especial ({e.turno.toLowerCase()}):</b> {e.comentario}</p>
+                </div>
+              ))}
+
+              {/* Observaciones */}
+              {datos.observaciones.map((o) => (
+                <div key={'o' + o.turno} className="flex gap-2 p-2.5 rounded-xl bg-sky-50 border border-sky-200 text-sm">
+                  <MessageSquareText className="w-4 h-4 text-sky-600 shrink-0 mt-0.5" />
+                  <p className="text-slate-700 whitespace-pre-line"><b>Observación ({o.turno.toLowerCase()}):</b> {o.observacion}</p>
                 </div>
               ))}
 
